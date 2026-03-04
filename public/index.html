@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gomoku Online</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="panel">
+        <h1>Gomoku Online</h1>
+        <p class="sub">Play with a friend using a room code and built-in video call.</p>
+
+        <div class="room-actions">
+          <button id="createRoomBtn">Create Room</button>
+          <div class="join-row">
+            <input id="roomCodeInput" maxlength="8" placeholder="ROOM CODE" />
+            <button id="joinRoomBtn">Join Room</button>
+          </div>
+        </div>
+
+        <div class="status-row">
+          <span>Room:</span>
+          <strong id="roomCodeLabel">-</strong>
+        </div>
+        <div class="status-row">
+          <span>You are:</span>
+          <strong id="youAreLabel">-</strong>
+        </div>
+        <div class="status-row">
+          <span>Game:</span>
+          <strong id="gameStatusLabel">Create or join a room</strong>
+        </div>
+
+        <div class="game-controls">
+          <button id="undoBtn" class="secondary" disabled>Undo</button>
+          <button id="redoBtn" class="secondary" disabled>Redo</button>
+          <button id="resetBtn" class="secondary" disabled>Reset Game</button>
+        </div>
+        <p id="message" class="message"></p>
+      </section>
+
+      <section class="board-wrap">
+        <div id="board" class="board"></div>
+      </section>
+
+      <section class="panel video-panel">
+        <h2>Video Call</h2>
+        <div class="video-grid">
+          <div>
+            <p>You</p>
+            <video id="localVideo" autoplay muted playsinline></video>
+          </div>
+          <div>
+            <p>Friend</p>
+            <video id="remoteVideo" autoplay playsinline></video>
+          </div>
+        </div>
+        <div class="video-controls">
+          <button id="startVideoBtn" class="secondary">Start Camera</button>
+          <button id="muteBtn" class="secondary" disabled>Mute</button>
+          <button id="stopVideoBtn" class="secondary" disabled>Stop Camera</button>
+        </div>
+        <audio id="remoteAudio" autoplay></audio>
+      </section>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
