@@ -1,8 +1,4 @@
-const socket = io({
-  transports: ["websocket", "polling"],
-  upgrade: true,
-  rememberUpgrade: true
-});
+const socket = io();
 const BOARD_SIZE = 15;
 const STAR_POINTS = new Set(["3,3", "3,11", "7,7", "11,3", "11,11"]);
 
@@ -46,6 +42,21 @@ const remoteStream = new MediaStream();
 
 function showMessage(text) {
   message.textContent = text || "";
+}
+
+function emitWithAck(eventName, payload, onSuccess, fallbackErrorMessage) {
+  if (!socket.connected) {
+    showMessage("Not connected to server. Please refresh.");
+    return;
+  }
+
+  socket.timeout(7000).emit(eventName, payload, (err, res) => {
+    if (err) {
+      showMessage(fallbackErrorMessage || "Server did not respond. Please try again.");
+      return;
+    }
+    onSuccess(res);
+  });
 }
 
 async function loadRtcConfig() {
@@ -160,20 +171,25 @@ function onCellClick(e) {
   renderBoard();
   updateHeader();
 
-  socket.emit("make-move", { row, col }, (res) => {
-    if (!res?.ok) {
-      if (optimisticMove && currentState) {
-        currentState.board[optimisticMove.row][optimisticMove.col] = 0;
-        currentState.turn = optimisticMove.prevTurn;
+  emitWithAck(
+    "make-move",
+    { row, col },
+    (res) => {
+      if (!res?.ok) {
+        if (optimisticMove && currentState) {
+          currentState.board[optimisticMove.row][optimisticMove.col] = 0;
+          currentState.turn = optimisticMove.prevTurn;
+        }
+        optimisticMove = null;
+        renderBoard();
+        updateHeader();
+        showMessage(res?.error || "Move failed");
+        return;
       }
       optimisticMove = null;
-      renderBoard();
-      updateHeader();
-      showMessage(res?.error || "Move failed");
-      return;
-    }
-    optimisticMove = null;
-  });
+    },
+    "Move request timed out."
+  );
 }
 
 function applyRoomResponse(res) {
@@ -191,30 +207,45 @@ function applyRoomResponse(res) {
 }
 
 createRoomBtn.addEventListener("click", () => {
-  socket.emit("create-room", {}, applyRoomResponse);
+  emitWithAck("create-room", {}, applyRoomResponse, "Create room timed out.");
 });
 
 joinRoomBtn.addEventListener("click", () => {
   const code = roomCodeInput.value.trim().toUpperCase();
-  socket.emit("join-room", { roomCode: code }, applyRoomResponse);
+  emitWithAck("join-room", { roomCode: code }, applyRoomResponse, "Join room timed out.");
 });
 
 resetBtn.addEventListener("click", () => {
-  socket.emit("reset-game", {}, (res) => {
-    if (!res?.ok) showMessage(res?.error || "Reset failed");
-  });
+  emitWithAck(
+    "reset-game",
+    {},
+    (res) => {
+      if (!res?.ok) showMessage(res?.error || "Reset failed");
+    },
+    "Reset request timed out."
+  );
 });
 
 undoBtn.addEventListener("click", () => {
-  socket.emit("undo-move", {}, (res) => {
-    if (!res?.ok) showMessage(res?.error || "Undo failed");
-  });
+  emitWithAck(
+    "undo-move",
+    {},
+    (res) => {
+      if (!res?.ok) showMessage(res?.error || "Undo failed");
+    },
+    "Undo request timed out."
+  );
 });
 
 redoBtn.addEventListener("click", () => {
-  socket.emit("redo-move", {}, (res) => {
-    if (!res?.ok) showMessage(res?.error || "Redo failed");
-  });
+  emitWithAck(
+    "redo-move",
+    {},
+    (res) => {
+      if (!res?.ok) showMessage(res?.error || "Redo failed");
+    },
+    "Redo request timed out."
+  );
 });
 
 socket.on("room-updated", (state) => {
@@ -228,7 +259,17 @@ socket.on("room-updated", (state) => {
 socket.on("connect_error", (err) => {
   if (String(err?.message || "").includes("Unauthorized")) {
     window.location.href = "/login";
+    return;
   }
+  showMessage(`Connection issue: ${err?.message || "Unable to reach server"}`);
+});
+
+socket.on("connect", () => {
+  showMessage("");
+});
+
+socket.on("disconnect", () => {
+  showMessage("Disconnected from server. Reconnecting...");
 });
 
 socket.on("peer-left", () => {

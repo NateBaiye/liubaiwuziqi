@@ -7,10 +7,10 @@ const { Server } = require("socket.io");
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  transports: ["websocket", "polling"],
+  transports: ["polling", "websocket"],
   perMessageDeflate: false,
   pingInterval: 10000,
-  pingTimeout: 5000
+  pingTimeout: 20000
 });
 
 const PORT = process.env.PORT || 3000;
