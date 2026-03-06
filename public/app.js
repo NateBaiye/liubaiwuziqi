@@ -6,12 +6,29 @@ let roomCode = null;
 let myMark = null;
 let currentState = null;
 
+let rawLocalStream = null;
 let localStream = null;
 let peerConnection = null;
 let isMuted = false;
 let pendingIceCandidates = [];
 let callStarted = false;
 let optimisticMove = null;
+const BEAUTY_LEVEL = 45;
+let beautyCanvas = null;
+let beautyCtx = null;
+let beautySourceVideo = null;
+let beautyFrameRequestId = null;
+let beautyOutputStream = null;
+let outgoingProcessedVideoTrack = null;
+let previewProcessedVideoTrack = null;
+let faceDetector = null;
+let faceBox = null;
+let faceTiltRad = 0;
+let smoothedFaceTiltRad = 0;
+let faceDetectPending = false;
+let beautyFrameCounter = 0;
+let workingCanvas = null;
+let workingCtx = null;
 
 let rtcConfig = {
   iceServers: [
@@ -42,6 +59,196 @@ const remoteStream = new MediaStream();
 
 function showMessage(text) {
   message.textContent = text || "";
+}
+
+function beautyFilter(level) {
+  const blurPx = 0.6 + (level / 100) * 1.6;
+  const brightness = 1 + level / 500;
+  const contrast = 1 - level / 1300;
+  const saturate = 1 + level / 1200;
+  return `blur(${blurPx}px) brightness(${brightness}) contrast(${contrast}) saturate(${saturate})`;
+}
+
+function findLandmark(face, type) {
+  const landmarks = face?.landmarks || [];
+  return landmarks.find((lm) => lm.type === type);
+}
+
+async function detectFaceBox() {
+  if (!faceDetector || !beautySourceVideo || faceDetectPending) return;
+  if (beautySourceVideo.readyState < 2) return;
+
+  faceDetectPending = true;
+  try {
+    const faces = await faceDetector.detect(beautySourceVideo);
+    if (faces.length > 0) {
+      const face = faces[0];
+      faceBox = face.boundingBox;
+
+      const leftEye = findLandmark(face, "leftEye");
+      const rightEye = findLandmark(face, "rightEye");
+      if (leftEye?.locations?.[0] && rightEye?.locations?.[0]) {
+        const dx = rightEye.locations[0].x - leftEye.locations[0].x;
+        const dy = rightEye.locations[0].y - leftEye.locations[0].y;
+        faceTiltRad = Math.atan2(dy, dx);
+        // Smooth tilt over time to avoid jitter and side warping artifacts.
+        smoothedFaceTiltRad = smoothedFaceTiltRad * 0.82 + faceTiltRad * 0.18;
+      }
+    } else {
+      smoothedFaceTiltRad *= 0.92;
+    }
+  } catch (_) {
+    // Keep last faceBox on detect failure.
+  } finally {
+    faceDetectPending = false;
+  }
+}
+
+function drawSourceWithHeadCorrection() {
+  if (!workingCtx || !workingCanvas || !beautySourceVideo) return;
+
+  const w = workingCanvas.width;
+  const h = workingCanvas.height;
+  workingCtx.clearRect(0, 0, w, h);
+
+  const baseTilt = smoothedFaceTiltRad || faceTiltRad;
+  let strength = 0.45;
+  if (faceBox && beautySourceVideo.videoWidth && beautySourceVideo.videoHeight) {
+    const cx = faceBox.x + faceBox.width / 2;
+    const cy = faceBox.y + faceBox.height / 2;
+    const nx = Math.abs(cx / beautySourceVideo.videoWidth - 0.5) * 2;
+    const ny = Math.abs(cy / beautySourceVideo.videoHeight - 0.5) * 2;
+    const edgeFactor = Math.max(nx, ny);
+    strength *= 1 - Math.min(0.5, edgeFactor * 0.5);
+  }
+
+  const maxCorrection = (5 * Math.PI) / 180;
+  let correction = Math.max(-maxCorrection, Math.min(maxCorrection, -baseTilt * strength));
+  if (Math.abs(correction) < 0.01) correction = 0;
+
+  if (Math.abs(correction) < 0.001) {
+    workingCtx.drawImage(beautySourceVideo, 0, 0, w, h);
+    return;
+  }
+
+  let anchorX = w / 2;
+  let anchorY = h / 2;
+  if (faceBox && beautySourceVideo.videoWidth && beautySourceVideo.videoHeight) {
+    const scaleX = w / beautySourceVideo.videoWidth;
+    const scaleY = h / beautySourceVideo.videoHeight;
+    anchorX = (faceBox.x + faceBox.width / 2) * scaleX;
+    anchorY = (faceBox.y + faceBox.height / 2) * scaleY;
+  }
+
+  workingCtx.save();
+  workingCtx.translate(anchorX, anchorY);
+  workingCtx.rotate(correction);
+  const overscan = 1.06;
+  const dw = w * overscan;
+  const dh = h * overscan;
+  workingCtx.drawImage(beautySourceVideo, -dw / 2, -dh / 2, dw, dh);
+  workingCtx.restore();
+}
+
+function applyFaceBeauty() {
+  if (!faceBox || !beautyCtx || !beautyCanvas || !workingCanvas || !beautySourceVideo) return;
+
+  const scaleX = beautyCanvas.width / beautySourceVideo.videoWidth;
+  const scaleY = beautyCanvas.height / beautySourceVideo.videoHeight;
+  const x = faceBox.x * scaleX;
+  const y = faceBox.y * scaleY;
+  const w = faceBox.width * scaleX;
+  const h = faceBox.height * scaleY;
+
+  beautyCtx.save();
+  beautyCtx.beginPath();
+  beautyCtx.ellipse(
+    x + w / 2,
+    y + h / 2,
+    (w * 0.7),
+    (h * 0.9),
+    0,
+    0,
+    Math.PI * 2
+  );
+  beautyCtx.clip();
+
+  beautyCtx.filter = "blur(2.4px) brightness(1.07) saturate(1.04)";
+  beautyCtx.drawImage(workingCanvas, 0, 0, beautyCanvas.width, beautyCanvas.height);
+  beautyCtx.restore();
+}
+
+function renderBeautyFrame() {
+  if (!beautyCtx || !beautyCanvas || !beautySourceVideo || !workingCanvas) return;
+  if (beautySourceVideo.readyState >= 2) {
+    drawSourceWithHeadCorrection();
+    beautyCtx.filter = "brightness(1.03) contrast(0.99) saturate(1.03)";
+    beautyCtx.drawImage(workingCanvas, 0, 0, beautyCanvas.width, beautyCanvas.height);
+
+    beautyCtx.filter = beautyFilter(BEAUTY_LEVEL);
+    beautyCtx.drawImage(workingCanvas, 0, 0, beautyCanvas.width, beautyCanvas.height);
+    applyFaceBeauty();
+
+    beautyFrameCounter += 1;
+    if (beautyFrameCounter % 8 === 0) {
+      detectFaceBox();
+    }
+  }
+  beautyFrameRequestId = requestAnimationFrame(renderBeautyFrame);
+}
+
+async function createProcessedVideoStream(rawStream) {
+  const rawVideoTrack = rawStream.getVideoTracks()[0];
+  const settings = rawVideoTrack.getSettings ? rawVideoTrack.getSettings() : {};
+  const width = settings.width || 640;
+  const height = settings.height || 480;
+
+  beautyCanvas = document.createElement("canvas");
+  beautyCanvas.width = width;
+  beautyCanvas.height = height;
+  beautyCtx = beautyCanvas.getContext("2d", { alpha: false });
+  workingCanvas = document.createElement("canvas");
+  workingCanvas.width = width;
+  workingCanvas.height = height;
+  workingCtx = workingCanvas.getContext("2d", { alpha: false });
+
+  beautySourceVideo = document.createElement("video");
+  beautySourceVideo.autoplay = true;
+  beautySourceVideo.muted = true;
+  beautySourceVideo.playsInline = true;
+  beautySourceVideo.srcObject = new MediaStream([rawVideoTrack]);
+  await beautySourceVideo.play();
+
+  if ("FaceDetector" in window) {
+    try {
+      faceDetector = new FaceDetector({
+        fastMode: true,
+        maxDetectedFaces: 1
+      });
+    } catch (_) {
+      faceDetector = null;
+    }
+  } else {
+    faceDetector = null;
+  }
+  faceBox = null;
+  faceTiltRad = 0;
+  smoothedFaceTiltRad = 0;
+  faceDetectPending = false;
+  beautyFrameCounter = 0;
+
+  if (beautyFrameRequestId) cancelAnimationFrame(beautyFrameRequestId);
+  renderBeautyFrame();
+
+  beautyOutputStream = beautyCanvas.captureStream(30);
+  outgoingProcessedVideoTrack = beautyOutputStream.getVideoTracks()[0];
+  previewProcessedVideoTrack = outgoingProcessedVideoTrack.clone();
+  localVideo.srcObject = new MediaStream([previewProcessedVideoTrack]);
+  localVideo.muted = true;
+  localVideo.playsInline = true;
+  await localVideo.play().catch(() => {});
+
+  return new MediaStream([outgoingProcessedVideoTrack, ...rawStream.getAudioTracks()]);
 }
 
 function emitWithAck(eventName, payload, onSuccess, fallbackErrorMessage) {
@@ -282,7 +489,7 @@ socket.on("peer-left", () => {
 
 async function startLocalMedia() {
   if (localStream) return localStream;
-  localStream = await navigator.mediaDevices.getUserMedia({
+  rawLocalStream = await navigator.mediaDevices.getUserMedia({
     video: true,
     audio: {
       echoCancellation: true,
@@ -290,15 +497,49 @@ async function startLocalMedia() {
       autoGainControl: true
     }
   });
-  localVideo.srcObject = localStream;
+  localStream = await createProcessedVideoStream(rawLocalStream);
   muteBtn.disabled = false;
   stopVideoBtn.disabled = false;
   return localStream;
 }
 
 function stopLocalMedia() {
-  if (!localStream) return;
-  localStream.getTracks().forEach((t) => t.stop());
+  if (!localStream && !rawLocalStream) return;
+  if (beautyFrameRequestId) {
+    cancelAnimationFrame(beautyFrameRequestId);
+    beautyFrameRequestId = null;
+  }
+  if (beautySourceVideo) {
+    beautySourceVideo.pause();
+    beautySourceVideo.srcObject = null;
+    beautySourceVideo = null;
+  }
+  if (localStream) {
+    localStream.getVideoTracks().forEach((t) => t.stop());
+  }
+  if (previewProcessedVideoTrack) {
+    previewProcessedVideoTrack.stop();
+    previewProcessedVideoTrack = null;
+  }
+  if (outgoingProcessedVideoTrack) {
+    outgoingProcessedVideoTrack.stop();
+    outgoingProcessedVideoTrack = null;
+  }
+  beautyOutputStream = null;
+  if (rawLocalStream) {
+    rawLocalStream.getTracks().forEach((t) => t.stop());
+  }
+  beautyCanvas = null;
+  beautyCtx = null;
+  workingCanvas = null;
+  workingCtx = null;
+  faceDetector = null;
+  faceBox = null;
+  faceTiltRad = 0;
+  smoothedFaceTiltRad = 0;
+  faceDetectPending = false;
+  beautyFrameCounter = 0;
+  rawLocalStream = null;
   localStream = null;
   localVideo.srcObject = null;
   muteBtn.disabled = true;
@@ -448,9 +689,10 @@ stopVideoBtn.addEventListener("click", () => {
 });
 
 muteBtn.addEventListener("click", () => {
-  if (!localStream) return;
+  if (!rawLocalStream && !localStream) return;
   isMuted = !isMuted;
-  localStream.getAudioTracks().forEach((track) => {
+  const stream = rawLocalStream || localStream;
+  stream.getAudioTracks().forEach((track) => {
     track.enabled = !isMuted;
   });
   muteBtn.textContent = isMuted ? "Unmute" : "Mute";

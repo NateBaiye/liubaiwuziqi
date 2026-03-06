@@ -264,6 +264,14 @@ video {
   aspect-ratio: 16 / 10;
 }
 
+#localVideo {
+  transform: scaleX(-1);
+}
+
+#remoteVideo {
+  transform: scaleX(-1);
+}
+
 .video-controls {
   margin-top: 0.8rem;
   display: flex;
