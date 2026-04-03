@@ -1,0 +1,12 @@
+services:
+  coturn:
+    image: coturn/coturn:4.6.3
+    container_name: gomoku-coturn
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - .env
+    volumes:
+      - ./turnserver.conf.template:/etc/coturn/turnserver.conf.template:ro
+      - ./entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]

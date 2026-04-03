@@ -90,7 +90,8 @@ Recommended TURN options:
 ### Self-hosted Coturn
 
 If you want to run your own TURN server, a starter Coturn config is included here:
-- [coturn/turnserver.conf](/Users/akashibaba/Desktop/Gomoku/coturn/turnserver.conf)
+- [coturn/docker-compose.yml](/Users/akashibaba/Desktop/Gomoku/coturn/docker-compose.yml)
+- [coturn/turnserver.conf.template](/Users/akashibaba/Desktop/Gomoku/coturn/turnserver.conf.template)
 - [coturn/README.md](/Users/akashibaba/Desktop/Gomoku/coturn/README.md)
 
 That setup lets you host your own TURN server and then paste its values into:
