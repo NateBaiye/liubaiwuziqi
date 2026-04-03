@@ -33,6 +33,7 @@ let faceDetectPending = false;
 let beautyFrameCounter = 0;
 let workingCanvas = null;
 let workingCtx = null;
+let currentPcGeneration = 0;
 
 let rtcConfig = {
   iceServers: [
@@ -212,6 +213,9 @@ function renderBeautyFrame() {
 
 async function createProcessedVideoStream(rawStream) {
   const rawVideoTrack = rawStream.getVideoTracks()[0];
+  if (!rawVideoTrack) {
+    return rawStream;
+  }
   const settings = rawVideoTrack.getSettings ? rawVideoTrack.getSettings() : {};
   const width = settings.width || 640;
   const height = settings.height || 480;
@@ -253,8 +257,18 @@ async function createProcessedVideoStream(rawStream) {
   if (beautyFrameRequestId) cancelAnimationFrame(beautyFrameRequestId);
   renderBeautyFrame();
 
-  beautyOutputStream = beautyCanvas.captureStream(30);
-  outgoingProcessedVideoTrack = beautyOutputStream.getVideoTracks()[0];
+  if (typeof beautyCanvas.captureStream === "function") {
+    beautyOutputStream = beautyCanvas.captureStream(30);
+    outgoingProcessedVideoTrack = beautyOutputStream.getVideoTracks()[0] || null;
+  } else {
+    beautyOutputStream = null;
+    outgoingProcessedVideoTrack = null;
+  }
+
+  if (!outgoingProcessedVideoTrack) {
+    outgoingProcessedVideoTrack = rawVideoTrack.clone();
+  }
+
   previewProcessedVideoTrack = outgoingProcessedVideoTrack.clone();
   localVideo.srcObject = new MediaStream([previewProcessedVideoTrack]);
   localVideo.muted = true;
@@ -567,6 +581,7 @@ function ensurePeerConnection() {
   if (peerConnection) return peerConnection;
 
   peerConnection = new RTCPeerConnection(rtcConfig);
+  const pcGeneration = ++currentPcGeneration;
 
   peerConnection.onicecandidate = (e) => {
     if (e.candidate) {
@@ -594,10 +609,21 @@ function ensurePeerConnection() {
   };
 
   peerConnection.onconnectionstatechange = () => {
+    if (!peerConnection || pcGeneration !== currentPcGeneration) return;
     if (["failed", "closed", "disconnected"].includes(peerConnection.connectionState)) {
       remoteVideo.srcObject = null;
       remoteAudio.srcObject = null;
       remoteStream.getTracks().forEach((track) => remoteStream.removeTrack(track));
+      callStarted = false;
+      pendingIceCandidates = [];
+      showMessage("Video call disconnected. Click Start Camera again if it does not recover.");
+    }
+  };
+
+  peerConnection.oniceconnectionstatechange = () => {
+    if (!peerConnection || pcGeneration !== currentPcGeneration) return;
+    if (["failed", "disconnected"].includes(peerConnection.iceConnectionState)) {
+      callStarted = false;
     }
   };
 
@@ -614,8 +640,11 @@ function closePeerConnection() {
   if (!peerConnection) return;
   peerConnection.onicecandidate = null;
   peerConnection.ontrack = null;
+  peerConnection.onconnectionstatechange = null;
+  peerConnection.oniceconnectionstatechange = null;
   peerConnection.close();
   peerConnection = null;
+  currentPcGeneration += 1;
   remoteVideo.srcObject = null;
   remoteAudio.srcObject = null;
   remoteStream.getTracks().forEach((track) => remoteStream.removeTrack(track));
@@ -638,6 +667,7 @@ async function maybeStartCallFlow() {
 
   const pc = ensurePeerConnection();
   if (["connected", "connecting"].includes(pc.connectionState)) return;
+  if (pc.signalingState === "have-local-offer") return;
 
   if (myMark === 1 && pc.signalingState === "stable" && !pc.remoteDescription && !callStarted) {
     callStarted = true;
@@ -651,13 +681,18 @@ socket.on("webrtc-offer", async ({ offer }) => {
   try {
     await startLocalMedia();
     const pc = ensurePeerConnection();
+    if (pc.signalingState !== "stable") {
+      closePeerConnection();
+    }
+    const activePc = ensurePeerConnection();
     callStarted = true;
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
-    await flushPendingIceCandidates(pc);
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
+    await activePc.setRemoteDescription(new RTCSessionDescription(offer));
+    await flushPendingIceCandidates(activePc);
+    const answer = await activePc.createAnswer();
+    await activePc.setLocalDescription(answer);
     socket.emit("webrtc-answer", { answer });
   } catch (err) {
+    callStarted = false;
     showMessage(`WebRTC offer error: ${err.message}`);
   }
 });
@@ -669,6 +704,7 @@ socket.on("webrtc-answer", async ({ answer }) => {
     await flushPendingIceCandidates(peerConnection);
     callStarted = true;
   } catch (err) {
+    callStarted = false;
     showMessage(`WebRTC answer error: ${err.message}`);
   }
 });
