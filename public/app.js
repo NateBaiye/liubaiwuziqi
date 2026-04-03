@@ -590,13 +590,29 @@ function ensurePeerConnection() {
   };
 
   peerConnection.ontrack = (e) => {
-    const alreadyAdded = remoteStream.getTracks().some((track) => track.id === e.track.id);
-    if (!alreadyAdded) {
-      remoteStream.addTrack(e.track);
+    const incomingStream = e.streams?.[0] || null;
+
+    if (incomingStream) {
+      const currentTracks = remoteStream.getTracks();
+      currentTracks.forEach((track) => remoteStream.removeTrack(track));
+      incomingStream.getTracks().forEach((track) => remoteStream.addTrack(track));
+    } else {
+      const alreadyAdded = remoteStream.getTracks().some((track) => track.id === e.track.id);
+      if (!alreadyAdded) {
+        remoteStream.addTrack(e.track);
+      }
     }
-    remoteVideo.srcObject = remoteStream;
-    remoteAudio.srcObject = remoteStream;
-    remoteVideo.muted = false;
+
+    if (remoteVideo.srcObject !== remoteStream) {
+      remoteVideo.srcObject = remoteStream;
+    }
+    if (remoteAudio.srcObject !== remoteStream) {
+      remoteAudio.srcObject = remoteStream;
+    }
+
+    // Keep the video element muted so autoplay policies don't block the picture.
+    // Remote sound comes from the dedicated audio element below.
+    remoteVideo.muted = true;
     remoteVideo.volume = 1;
     remoteAudio.muted = false;
     remoteAudio.volume = 1;

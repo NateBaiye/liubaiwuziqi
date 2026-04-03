@@ -87,6 +87,17 @@ Recommended TURN options:
 - Include a `:443?transport=tcp` TURN URL for restrictive networks.
 - Use a real TURN provider (Coturn, Twilio Network Traversal, Metered, Xirsys) instead of STUN-only.
 
+### Self-hosted Coturn
+
+If you want to run your own TURN server, a starter Coturn config is included here:
+- [coturn/turnserver.conf](/Users/akashibaba/Desktop/Gomoku/coturn/turnserver.conf)
+- [coturn/README.md](/Users/akashibaba/Desktop/Gomoku/coturn/README.md)
+
+That setup lets you host your own TURN server and then paste its values into:
+- `TURN_URLS`
+- `TURN_USERNAME`
+- `TURN_CREDENTIAL`
+
 ## Better room reliability on Render
 Without persistence, room codes and active games live only in server memory. That means a free Render restart or spin-down can wipe them.
 
