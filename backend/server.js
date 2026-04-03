@@ -2,11 +2,22 @@ const path = require("path");
 const http = require("http");
 const express = require("express");
 const crypto = require("crypto");
+const { createClient } = require("redis");
 const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
+  cors: {
+    origin(origin, callback) {
+      if (isAllowedOrigin(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error("Blocked by CORS"));
+    },
+    credentials: true
+  },
   transports: ["polling", "websocket"],
   perMessageDeflate: false,
   pingInterval: 10000,
@@ -17,6 +28,10 @@ const PORT = process.env.PORT || 3000;
 const BOARD_SIZE = 15;
 const EMPTY = 0;
 const SITE_PASSWORD = process.env.SITE_PASSWORD;
+const FRONTEND_ORIGIN = String(process.env.FRONTEND_ORIGIN || "").trim();
+const SERVE_STATIC_FRONTEND = process.env.SERVE_STATIC_FRONTEND !== "false";
+const REDIS_URL = String(process.env.REDIS_URL || "").trim();
+const ROOM_TTL_SECONDS = Math.max(60, Number.parseInt(process.env.ROOM_TTL_SECONDS || "86400", 10) || 86400);
 const AUTH_COOKIE_NAME = "gomoku_auth";
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 const AUTH_MAX_ATTEMPTS = 5;
@@ -25,12 +40,48 @@ const DEFAULT_ICE_SERVERS = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" }
 ];
+const cors = require("cors");
+
+function isAllowedOrigin(origin) {
+  if (!FRONTEND_ORIGIN) return true;
+  if (!origin) return true;
+  return origin === FRONTEND_ORIGIN;
+}
+
+app.use(cors({
+  origin(origin, callback) {
+    if (isAllowedOrigin(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error("Blocked by CORS"));
+  },
+  credentials: true
+}));
 
 if (!SITE_PASSWORD) {
   throw new Error("Missing SITE_PASSWORD environment variable.");
 }
 const AUTH_TOKEN = crypto.createHash("sha256").update(SITE_PASSWORD).digest("hex");
 const authAttempts = new Map();
+const rooms = new Map();
+
+let redisClient = null;
+let redisConnectPromise = null;
+
+if (REDIS_URL) {
+  redisClient = createClient({ url: REDIS_URL });
+  redisClient.on("error", (error) => {
+    // eslint-disable-next-line no-console
+    console.error("Redis error:", error.message);
+  });
+  redisConnectPromise = redisClient.connect().catch((error) => {
+    // eslint-disable-next-line no-console
+    console.error("Redis connection failed:", error.message);
+    redisClient = null;
+    return null;
+  });
+}
 
 app.use(express.urlencoded({ extended: false }));
 app.set("trust proxy", 1);
@@ -60,17 +111,34 @@ function hasValidAuthCookie(cookieHeader) {
 }
 
 function buildAuthCookie(value, maxAgeSeconds) {
+  const isProduction = process.env.NODE_ENV === "production";
   const parts = [
     `${AUTH_COOKIE_NAME}=${value}`,
     "Path=/",
     "HttpOnly",
-    "SameSite=Lax",
+    `SameSite=${isProduction ? "None" : "Lax"}`,
     `Max-Age=${maxAgeSeconds}`
   ];
-  if (process.env.NODE_ENV === "production") {
+  if (isProduction) {
     parts.push("Secure");
   }
   return parts.join("; ");
+}
+
+function getPostLoginRedirect(rawTarget) {
+  if (typeof rawTarget !== "string" || !rawTarget.trim()) {
+    return FRONTEND_ORIGIN || "/";
+  }
+
+  const target = rawTarget.trim();
+  if (target.startsWith("/") && !target.startsWith("//")) {
+    return target;
+  }
+  if (FRONTEND_ORIGIN && target.startsWith(FRONTEND_ORIGIN)) {
+    return target;
+  }
+
+  return FRONTEND_ORIGIN || "/";
 }
 
 function getClientIp(req) {
@@ -80,6 +148,15 @@ function getClientIp(req) {
     .filter(Boolean);
   if (forwardedFor.length > 0) return forwardedFor[0];
   return req.ip || req.socket.remoteAddress || "unknown";
+}
+
+async function getRedisClient() {
+  if (!redisClient) return null;
+  if (redisConnectPromise) {
+    await redisConnectPromise;
+    redisConnectPromise = null;
+  }
+  return redisClient?.isReady ? redisClient : null;
 }
 
 function recordFailedAuthAttempt(ip) {
@@ -124,11 +201,11 @@ function requireAuth(req, res, next) {
 
 app.get("/login", (req, res) => {
   if (hasValidAuthCookie(req.headers.cookie)) {
-    res.redirect("/");
+    res.redirect(getPostLoginRedirect(String(req.query?.returnTo || "")));
     return;
   }
   res.setHeader("Cache-Control", "no-store");
-  res.sendFile(path.join(__dirname, "public", "login.html"));
+  res.sendFile(path.join(__dirname, "login.html"));
 });
 
 app.post("/auth", (req, res) => {
@@ -141,21 +218,28 @@ app.post("/auth", (req, res) => {
   const submitted = String(req.body?.password || "");
   if (submitted !== SITE_PASSWORD) {
     recordFailedAuthAttempt(ip);
-    res.redirect("/login?error=1");
+    const returnTo = String(req.body?.returnTo || req.query?.returnTo || "");
+    const nextQuery = returnTo ? `?error=1&returnTo=${encodeURIComponent(returnTo)}` : "?error=1";
+    res.redirect(`/login${nextQuery}`);
     return;
   }
   clearAuthAttempts(ip);
+  const returnTo = getPostLoginRedirect(String(req.body?.returnTo || req.query?.returnTo || ""));
 
   res.setHeader(
     "Set-Cookie",
     buildAuthCookie(AUTH_TOKEN, COOKIE_MAX_AGE_SECONDS)
   );
-  res.redirect("/");
+  res.redirect(returnTo);
 });
 
 app.post("/logout", (req, res) => {
   res.setHeader("Set-Cookie", buildAuthCookie("", 0));
   res.redirect("/login");
+});
+
+app.get("/health", (_, res) => {
+  res.json({ ok: true });
 });
 
 app.get("/webrtc-config", requireAuth, (_, res) => {
@@ -178,8 +262,10 @@ app.get("/webrtc-config", requireAuth, (_, res) => {
   res.json({ iceServers });
 });
 
-app.use(requireAuth);
-app.use(express.static(path.join(__dirname, "public")));
+if (SERVE_STATIC_FRONTEND) {
+  app.use(requireAuth);
+  app.use(express.static(path.join(__dirname, "..", "public")));
+}
 
 io.use((socket, next) => {
   if (hasValidAuthCookie(socket.handshake.headers.cookie)) {
@@ -272,11 +358,68 @@ function recomputeRoomStateFromHistory(room) {
   room.turn = lastMove.mark === 1 ? 2 : 1;
 }
 
-const rooms = new Map();
+function roomStorageKey(code) {
+  return `gomoku:room:${code}`;
+}
 
-function createRoom() {
+function pruneDisconnectedPlayers(room) {
+  room.players = room.players.filter((player) => io.sockets.sockets.has(player.id));
+}
+
+function nextAvailableMark(room) {
+  const taken = new Set(room.players.map((player) => player.mark));
+  if (!taken.has(1)) return 1;
+  if (!taken.has(2)) return 2;
+  return null;
+}
+
+async function loadRoom(code) {
+  const normalizedCode = String(code || "").toUpperCase().trim();
+  if (!normalizedCode) return null;
+
+  let room = rooms.get(normalizedCode) || null;
+  if (!room) {
+    const redis = await getRedisClient();
+    if (redis) {
+      const rawRoom = await redis.get(roomStorageKey(normalizedCode));
+      if (rawRoom) {
+        room = JSON.parse(rawRoom);
+        rooms.set(normalizedCode, room);
+      }
+    }
+  }
+
+  if (!room) return null;
+
+  const previousPlayerCount = room.players.length;
+  pruneDisconnectedPlayers(room);
+  if (room.players.length !== previousPlayerCount) {
+    await saveRoom(room);
+  }
+
+  return room;
+}
+
+async function saveRoom(room) {
+  rooms.set(room.code, room);
+  const redis = await getRedisClient();
+  if (!redis) return;
+  await redis.set(roomStorageKey(room.code), JSON.stringify(room), {
+    EX: ROOM_TTL_SECONDS
+  });
+}
+
+async function deleteRoom(code) {
+  const normalizedCode = String(code || "").toUpperCase().trim();
+  rooms.delete(normalizedCode);
+  const redis = await getRedisClient();
+  if (!redis) return;
+  await redis.del(roomStorageKey(normalizedCode));
+}
+
+async function createRoom() {
   let code = randomRoomCode();
-  while (rooms.has(code)) {
+  while (await loadRoom(code)) {
     code = randomRoomCode();
   }
   const room = {
@@ -288,7 +431,7 @@ function createRoom() {
     history: [],
     redoStack: []
   };
-  rooms.set(code, room);
+  await saveRoom(room);
   return room;
 }
 
@@ -308,30 +451,33 @@ function getRoomState(room) {
 }
 
 io.on("connection", (socket) => {
-  socket.on("create-room", (_, cb) => {
-    const room = createRoom();
+  socket.on("create-room", async (_, cb) => {
+    const room = await createRoom();
     const player = { id: socket.id, mark: 1 };
     room.players.push(player);
+    await saveRoom(room);
     socket.join(room.code);
     socket.data.roomCode = room.code;
     socket.data.mark = player.mark;
     cb?.({ ok: true, roomCode: room.code, mark: player.mark, state: getRoomState(room) });
   });
 
-  socket.on("join-room", ({ roomCode }, cb) => {
+  socket.on("join-room", async ({ roomCode }, cb) => {
     const code = String(roomCode || "").toUpperCase().trim();
-    const room = rooms.get(code);
+    const room = await loadRoom(code);
     if (!room) {
       cb?.({ ok: false, error: "Room not found." });
       return;
     }
-    if (room.players.length >= 2) {
+    const mark = nextAvailableMark(room);
+    if (mark === null) {
       cb?.({ ok: false, error: "Room is full." });
       return;
     }
 
-    const player = { id: socket.id, mark: 2 };
+    const player = { id: socket.id, mark };
     room.players.push(player);
+    await saveRoom(room);
     socket.join(room.code);
     socket.data.roomCode = room.code;
     socket.data.mark = player.mark;
@@ -340,13 +486,13 @@ io.on("connection", (socket) => {
     io.to(room.code).emit("room-updated", getRoomState(room));
   });
 
-  socket.on("make-move", ({ row, col }, cb) => {
+  socket.on("make-move", async ({ row, col }, cb) => {
     const roomCode = socket.data.roomCode;
     if (!roomCode) {
       cb?.({ ok: false, error: "You are not in a room." });
       return;
     }
-    const room = rooms.get(roomCode);
+    const room = await loadRoom(roomCode);
     if (!room) {
       cb?.({ ok: false, error: "Room not found." });
       return;
@@ -386,13 +532,14 @@ io.on("connection", (socket) => {
       room.turn = room.turn === 1 ? 2 : 1;
     }
 
+    await saveRoom(room);
     io.to(room.code).emit("room-updated", getRoomState(room));
     cb?.({ ok: true });
   });
 
-  socket.on("reset-game", (_, cb) => {
+  socket.on("reset-game", async (_, cb) => {
     const roomCode = socket.data.roomCode;
-    const room = roomCode ? rooms.get(roomCode) : null;
+    const room = roomCode ? await loadRoom(roomCode) : null;
     if (!room) {
       cb?.({ ok: false, error: "Room not found." });
       return;
@@ -402,13 +549,14 @@ io.on("connection", (socket) => {
     room.winner = null;
     room.history = [];
     room.redoStack = [];
+    await saveRoom(room);
     io.to(room.code).emit("room-updated", getRoomState(room));
     cb?.({ ok: true });
   });
 
-  socket.on("undo-move", (_, cb) => {
+  socket.on("undo-move", async (_, cb) => {
     const roomCode = socket.data.roomCode;
-    const room = roomCode ? rooms.get(roomCode) : null;
+    const room = roomCode ? await loadRoom(roomCode) : null;
     if (!room) {
       cb?.({ ok: false, error: "Room not found." });
       return;
@@ -421,13 +569,14 @@ io.on("connection", (socket) => {
     const move = room.history.pop();
     room.redoStack.push(move);
     recomputeRoomStateFromHistory(room);
+    await saveRoom(room);
     io.to(room.code).emit("room-updated", getRoomState(room));
     cb?.({ ok: true });
   });
 
-  socket.on("redo-move", (_, cb) => {
+  socket.on("redo-move", async (_, cb) => {
     const roomCode = socket.data.roomCode;
-    const room = roomCode ? rooms.get(roomCode) : null;
+    const room = roomCode ? await loadRoom(roomCode) : null;
     if (!room) {
       cb?.({ ok: false, error: "Room not found." });
       return;
@@ -440,6 +589,7 @@ io.on("connection", (socket) => {
     const move = room.redoStack.pop();
     room.history.push(move);
     recomputeRoomStateFromHistory(room);
+    await saveRoom(room);
     io.to(room.code).emit("room-updated", getRoomState(room));
     cb?.({ ok: true });
   });
@@ -462,20 +612,23 @@ io.on("connection", (socket) => {
     socket.to(roomCode).emit("webrtc-ice-candidate", { candidate });
   });
 
-  socket.on("disconnect", () => {
+  socket.on("disconnect", async () => {
     const roomCode = socket.data.roomCode;
     if (!roomCode) return;
-    const room = rooms.get(roomCode);
+    const room = await loadRoom(roomCode);
     if (!room) return;
 
     room.players = room.players.filter((p) => p.id !== socket.id);
     socket.to(room.code).emit("peer-left");
 
     if (room.players.length === 0) {
-      rooms.delete(room.code);
+      // Keep the room alive until TTL expiry so short Render restarts
+      // or reconnects do not immediately invalidate the room code.
+      await saveRoom(room);
       return;
     }
 
+    await saveRoom(room);
     io.to(room.code).emit("room-updated", getRoomState(room));
   });
 });

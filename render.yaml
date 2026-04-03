@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: gomoku-online
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SERVE_STATIC_FRONTEND
+        value: "true"
+      - key: SITE_PASSWORD
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: ROOM_TTL_SECONDS
+        value: "86400"
+      - key: TURN_URLS
+        sync: false
+      - key: TURN_USERNAME
+        sync: false
+      - key: TURN_CREDENTIAL
+        sync: false

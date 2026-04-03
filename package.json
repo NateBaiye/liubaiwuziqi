@@ -1,14 +1,10 @@
 {
-  "name": "gomoku-online",
+  "name": "gomoku-online-monorepo",
   "version": "1.0.0",
+  "private": true,
   "description": "Online Gomoku with room codes and video call",
-  "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.19.2",
-    "socket.io": "^4.7.5"
+    "start": "node backend/server.js",
+    "postinstall": "npm install --prefix backend"
   }
 }

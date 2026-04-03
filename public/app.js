@@ -1,4 +1,8 @@
-const socket = io();
+const API_BASE_URL = String(window.APP_CONFIG?.API_BASE_URL || "").replace(/\/$/, "");
+const socket = io(API_BASE_URL || undefined, {
+  withCredentials: true,
+  transports: ["polling", "websocket"]
+});
 const BOARD_SIZE = 15;
 const STAR_POINTS = new Set(["3,3", "3,11", "7,7", "11,3", "11,11"]);
 
@@ -56,6 +60,15 @@ const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
 const remoteAudio = document.getElementById("remoteAudio");
 const remoteStream = new MediaStream();
+
+function apiUrl(path) {
+  return `${API_BASE_URL}${path}`;
+}
+
+function redirectToLogin() {
+  const loginUrl = `${apiUrl("/login")}?returnTo=${encodeURIComponent(window.location.href)}`;
+  window.location.href = loginUrl;
+}
 
 function showMessage(text) {
   message.textContent = text || "";
@@ -268,7 +281,9 @@ function emitWithAck(eventName, payload, onSuccess, fallbackErrorMessage) {
 
 async function loadRtcConfig() {
   try {
-    const response = await fetch("/webrtc-config");
+    const response = await fetch(apiUrl("/webrtc-config"), {
+      credentials: "include"
+    });
     if (!response.ok) return;
     const data = await response.json();
     if (Array.isArray(data?.iceServers) && data.iceServers.length > 0) {
@@ -465,7 +480,7 @@ socket.on("room-updated", (state) => {
 
 socket.on("connect_error", (err) => {
   if (String(err?.message || "").includes("Unauthorized")) {
-    window.location.href = "/login";
+    redirectToLogin();
     return;
   }
   showMessage(`Connection issue: ${err?.message || "Unable to reach server"}`);
