@@ -85,19 +85,7 @@ npm start
 Recommended TURN options:
 - Use both UDP and TCP TURN URLs if your provider supports them.
 - Include a `:443?transport=tcp` TURN URL for restrictive networks.
-- Use a real TURN provider (Coturn, Twilio Network Traversal, Metered, Xirsys) instead of STUN-only.
-
-### Self-hosted Coturn
-
-If you want to run your own TURN server, a starter Coturn config is included here:
-- [coturn/docker-compose.yml](/Users/akashibaba/Desktop/Gomoku/coturn/docker-compose.yml)
-- [coturn/turnserver.conf.template](/Users/akashibaba/Desktop/Gomoku/coturn/turnserver.conf.template)
-- [coturn/README.md](/Users/akashibaba/Desktop/Gomoku/coturn/README.md)
-
-That setup lets you host your own TURN server and then paste its values into:
-- `TURN_URLS`
-- `TURN_USERNAME`
-- `TURN_CREDENTIAL`
+- Use a real TURN provider or your own TURN server (for example, ExpressTURN, Twilio Network Traversal, Metered, or Xirsys) instead of STUN-only.
 
 ## Better room reliability on Render
 Without persistence, room codes and active games live only in server memory. That means a free Render restart or spin-down can wipe them.
