@@ -34,6 +34,7 @@ let beautyFrameCounter = 0;
 let workingCanvas = null;
 let workingCtx = null;
 let currentPcGeneration = 0;
+let rtcConfigPromise = null;
 
 let rtcConfig = {
   iceServers: [
@@ -308,6 +309,13 @@ async function loadRtcConfig() {
   }
 }
 
+function ensureRtcConfigLoaded() {
+  if (!rtcConfigPromise) {
+    rtcConfigPromise = loadRtcConfig();
+  }
+  return rtcConfigPromise;
+}
+
 function markToText(mark) {
   return mark === 1 ? "Black" : mark === 2 ? "White" : "-";
 }
@@ -518,6 +526,7 @@ socket.on("peer-left", () => {
 
 async function startLocalMedia() {
   if (localStream) return localStream;
+  await ensureRtcConfigLoaded();
   rawLocalStream = await navigator.mediaDevices.getUserMedia({
     video: true,
     audio: {
@@ -740,6 +749,7 @@ socket.on("webrtc-ice-candidate", async ({ candidate }) => {
 
 startVideoBtn.addEventListener("click", async () => {
   try {
+    await ensureRtcConfigLoaded();
     await startLocalMedia();
     await maybeStartCallFlow();
     showMessage("");
@@ -767,4 +777,4 @@ muteBtn.addEventListener("click", () => {
 
 updateHeader();
 renderBoard();
-loadRtcConfig();
+ensureRtcConfigLoaded();
