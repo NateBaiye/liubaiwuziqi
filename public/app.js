@@ -3,11 +3,11 @@ const socket = io(API_BASE_URL || undefined, {
   withCredentials: true,
   transports: ["polling", "websocket"]
 });
-const BOARD_SIZE = 15;
+const BOARD_SIZE = 17;
 const STAR_POINTS = new Set([
-  "3,3", "3,7", "3,11",
-  "7,3", "7,7", "7,11",
-  "11,3", "11,7", "11,11"
+  "3,3", "3,8", "3,13",
+  "8,3", "8,8", "8,13",
+  "13,3", "13,8", "13,13"
 ]);
 
 let roomCode = null;
@@ -303,12 +303,16 @@ async function loadRtcConfig() {
     const response = await fetch(apiUrl("/webrtc-config"), {
       credentials: "include"
     });
-    if (!response.ok) return;
+    if (!response.ok) {
+      rtcConfigPromise = null;
+      return;
+    }
     const data = await response.json();
     if (Array.isArray(data?.iceServers) && data.iceServers.length > 0) {
       rtcConfig = { iceServers: data.iceServers };
     }
   } catch (_) {
+    rtcConfigPromise = null;
     // Keep default STUN config if request fails.
   }
 }

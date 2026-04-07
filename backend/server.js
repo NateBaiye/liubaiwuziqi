@@ -25,7 +25,7 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
-const BOARD_SIZE = 15;
+const BOARD_SIZE = 17;
 const EMPTY = 0;
 const SITE_PASSWORD = process.env.SITE_PASSWORD;
 const FRONTEND_ORIGIN = String(process.env.FRONTEND_ORIGIN || "").trim();
@@ -33,6 +33,7 @@ const SERVE_STATIC_FRONTEND = process.env.SERVE_STATIC_FRONTEND !== "false";
 const REDIS_URL = String(process.env.REDIS_URL || "").trim();
 const ROOM_TTL_SECONDS = Math.max(60, Number.parseInt(process.env.ROOM_TTL_SECONDS || "86400", 10) || 86400);
 const AUTH_COOKIE_NAME = "gomoku_auth";
+const PLAYER_COOKIE_NAME = "gomoku_player";
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 const AUTH_MAX_ATTEMPTS = 5;
 const AUTH_LOCK_MS = 60 * 60 * 1000;
@@ -110,6 +111,11 @@ function hasValidAuthCookie(cookieHeader) {
   return cookies[AUTH_COOKIE_NAME] === AUTH_TOKEN;
 }
 
+function getPlayerToken(cookieHeader) {
+  const cookies = parseCookies(cookieHeader);
+  return cookies[PLAYER_COOKIE_NAME] || null;
+}
+
 function buildAuthCookie(value, maxAgeSeconds) {
   const isProduction = process.env.NODE_ENV === "production";
   const parts = [
@@ -123,6 +129,33 @@ function buildAuthCookie(value, maxAgeSeconds) {
     parts.push("Secure");
   }
   return parts.join("; ");
+}
+
+function buildPlayerCookie(value, maxAgeSeconds) {
+  const isProduction = process.env.NODE_ENV === "production";
+  const parts = [
+    `${PLAYER_COOKIE_NAME}=${encodeURIComponent(value)}`,
+    "Path=/",
+    `SameSite=${isProduction ? "None" : "Lax"}`,
+    `Max-Age=${maxAgeSeconds}`
+  ];
+  if (isProduction) {
+    parts.push("Secure");
+  }
+  return parts.join("; ");
+}
+
+function ensurePlayerToken(req, res) {
+  const existingToken = getPlayerToken(req.headers.cookie);
+  if (existingToken) return existingToken;
+  const token = crypto.randomUUID();
+  const currentSetCookie = res.getHeader("Set-Cookie");
+  const cookies = Array.isArray(currentSetCookie)
+    ? currentSetCookie.filter(Boolean)
+    : currentSetCookie ? [currentSetCookie] : [];
+  cookies.push(buildPlayerCookie(token, COOKIE_MAX_AGE_SECONDS));
+  res.setHeader("Set-Cookie", cookies);
+  return token;
 }
 
 function getPostLoginRedirect(rawTarget) {
@@ -200,6 +233,7 @@ function requireAuth(req, res, next) {
 }
 
 app.get("/login", (req, res) => {
+  ensurePlayerToken(req, res);
   if (hasValidAuthCookie(req.headers.cookie)) {
     res.redirect(getPostLoginRedirect(String(req.query?.returnTo || "")));
     return;
@@ -209,6 +243,7 @@ app.get("/login", (req, res) => {
 });
 
 app.post("/auth", (req, res) => {
+  const playerToken = ensurePlayerToken(req, res);
   const ip = getClientIp(req);
   if (tooManyAuthAttempts(ip)) {
     res.status(429).send("Too many login attempts. You are locked for 1 hour.");
@@ -228,7 +263,10 @@ app.post("/auth", (req, res) => {
 
   res.setHeader(
     "Set-Cookie",
-    buildAuthCookie(AUTH_TOKEN, COOKIE_MAX_AGE_SECONDS)
+    [
+      buildAuthCookie(AUTH_TOKEN, COOKIE_MAX_AGE_SECONDS),
+      buildPlayerCookie(playerToken, COOKIE_MAX_AGE_SECONDS)
+    ]
   );
   res.redirect(returnTo);
 });
@@ -363,7 +401,10 @@ function roomStorageKey(code) {
 }
 
 function pruneDisconnectedPlayers(room) {
-  room.players = room.players.filter((player) => io.sockets.sockets.has(player.id));
+  room.players = room.players.map((player) => {
+    if (player.id && io.sockets.sockets.has(player.id)) return player;
+    return { ...player, id: null };
+  });
 }
 
 function nextAvailableMark(room) {
@@ -371,6 +412,11 @@ function nextAvailableMark(room) {
   if (!taken.has(1)) return 1;
   if (!taken.has(2)) return 2;
   return null;
+}
+
+function findPlayerByToken(room, playerToken) {
+  if (!playerToken) return null;
+  return room.players.find((player) => player.playerToken === playerToken) || null;
 }
 
 async function loadRoom(code) {
@@ -451,9 +497,11 @@ function getRoomState(room) {
 }
 
 io.on("connection", (socket) => {
+  socket.data.playerToken = getPlayerToken(socket.handshake.headers.cookie);
+
   socket.on("create-room", async (_, cb) => {
     const room = await createRoom();
-    const player = { id: socket.id, mark: 1 };
+    const player = { id: socket.id, mark: 1, playerToken: socket.data.playerToken };
     room.players.push(player);
     await saveRoom(room);
     socket.join(room.code);
@@ -469,14 +517,19 @@ io.on("connection", (socket) => {
       cb?.({ ok: false, error: "Room not found." });
       return;
     }
-    const mark = nextAvailableMark(room);
-    if (mark === null) {
-      cb?.({ ok: false, error: "Room is full." });
-      return;
+    const existingPlayer = findPlayerByToken(room, socket.data.playerToken);
+    let player = existingPlayer;
+    if (player) {
+      player.id = socket.id;
+    } else {
+      const mark = nextAvailableMark(room);
+      if (mark === null) {
+        cb?.({ ok: false, error: "Room is full." });
+        return;
+      }
+      player = { id: socket.id, mark, playerToken: socket.data.playerToken };
+      room.players.push(player);
     }
-
-    const player = { id: socket.id, mark };
-    room.players.push(player);
     await saveRoom(room);
     socket.join(room.code);
     socket.data.roomCode = room.code;
@@ -618,10 +671,12 @@ io.on("connection", (socket) => {
     const room = await loadRoom(roomCode);
     if (!room) return;
 
-    room.players = room.players.filter((p) => p.id !== socket.id);
+    room.players = room.players.map((player) => (
+      player.id === socket.id ? { ...player, id: null } : player
+    ));
     socket.to(room.code).emit("peer-left");
 
-    if (room.players.length === 0) {
+    if (room.players.every((player) => !player.id)) {
       // Keep the room alive until TTL expiry so short Render restarts
       // or reconnects do not immediately invalidate the room code.
       await saveRoom(room);
