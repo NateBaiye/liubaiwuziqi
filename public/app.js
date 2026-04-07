@@ -4,7 +4,11 @@ const socket = io(API_BASE_URL || undefined, {
   transports: ["polling", "websocket"]
 });
 const BOARD_SIZE = 15;
-const STAR_POINTS = new Set(["3,3", "3,11", "7,7", "11,3", "11,11"]);
+const STAR_POINTS = new Set([
+  "3,3", "3,7", "3,11",
+  "7,3", "7,7", "7,11",
+  "11,3", "11,7", "11,11"
+]);
 
 let roomCode = null;
 let myMark = null;

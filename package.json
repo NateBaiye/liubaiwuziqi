@@ -5,6 +5,7 @@
   "description": "Online Gomoku with room codes and video call",
   "scripts": {
     "start": "node backend/server.js",
+    "dev": "node backend/server.js",
     "postinstall": "npm install --prefix backend"
   }
 }

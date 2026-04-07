@@ -1,5 +1,5 @@
 :root {
-  --bg: #f2efe8;
+  --bg: rgb(30, 30, 30);
   --panel: #fffaf0;
   --ink: #2f2a24;
   --accent: #aa3c2f;
@@ -13,7 +13,7 @@
 
 body {
   margin: 0;
-  background: radial-gradient(circle at top left, #fff6dd, var(--bg));
+  background: radial-gradient(circle at top left, rgb(46, 46, 46), var(--bg));
   color: var(--ink);
   font-family: "Trebuchet MS", "Segoe UI", sans-serif;
 }
@@ -113,11 +113,11 @@ button:disabled {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(140deg, #c98d52 0%, #d79d60 55%, #c78649 100%);
-  border: 2px solid #9f6a3a;
+  background: linear-gradient(145deg, rgb(120, 95, 61) 0%, rgb(139, 111, 71) 52%, rgb(110, 87, 55) 100%);
+  border: 2px solid rgb(101, 78, 49);
   border-radius: 16px;
-  padding: 1rem;
-  box-shadow: inset 0 0 0 1px rgba(255, 235, 198, 0.25), 0 8px 24px rgba(76, 41, 15, 0.28);
+  padding: 1.4rem;
+  box-shadow: inset 0 0 0 1px rgba(222, 188, 133, 0.18), 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .board {
@@ -127,17 +127,17 @@ button:disabled {
   gap: 0;
   background: linear-gradient(
       90deg,
-      rgba(255, 255, 255, 0.08) 0%,
+      rgba(202, 166, 112, 0.08) 0%,
       rgba(255, 255, 255, 0) 10%,
-      rgba(0, 0, 0, 0.04) 50%,
-      rgba(255, 255, 255, 0.08) 100%
+      rgba(0, 0, 0, 0.06) 50%,
+      rgba(202, 166, 112, 0.08) 100%
     ),
-    #d5a067;
+    rgb(139, 111, 71);
   padding: 0;
   border-radius: 6px;
-  width: min(90vw, 620px);
+  width: min(92vw, 700px);
   aspect-ratio: 1;
-  box-shadow: inset 0 0 0 1px rgba(79, 48, 22, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(219, 182, 118, 0.28);
 }
 
 .cell {
@@ -162,7 +162,7 @@ button:disabled {
   bottom: 0;
   left: 50%;
   width: 1px;
-  background: #1b1611;
+  background: rgb(196, 156, 96);
   transform: translateX(-50%);
   z-index: 1;
 }
@@ -174,7 +174,7 @@ button:disabled {
   right: 0;
   top: 50%;
   height: 1px;
-  background: #1b1611;
+  background: rgb(196, 156, 96);
   transform: translateY(-50%);
   z-index: 1;
 }
@@ -203,7 +203,7 @@ button:disabled {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  background: #17120f;
+  background: rgb(20, 16, 12);
   z-index: 2;
   pointer-events: none;
 }
