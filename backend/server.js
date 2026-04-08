@@ -25,7 +25,7 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
-const BOARD_SIZE = 17;
+const BOARD_SIZE = 19;
 const EMPTY = 0;
 const SITE_PASSWORD = process.env.SITE_PASSWORD;
 const FRONTEND_ORIGIN = String(process.env.FRONTEND_ORIGIN || "").trim();

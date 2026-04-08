@@ -45,22 +45,30 @@
         <div id="board" class="board"></div>
       </section>
 
-      <section class="panel video-panel">
-        <h2>Video Call</h2>
-        <div class="video-grid">
-          <div>
-            <p>You</p>
-            <video id="localVideo" autoplay muted playsinline></video>
-          </div>
-          <div>
-            <p>Friend</p>
-            <video id="remoteVideo" autoplay playsinline></video>
+      <section id="videoPanel" class="panel video-panel">
+        <div class="video-panel-header">
+          <h2>Video Call</h2>
+          <div class="video-panel-actions">
+            <button id="shrinkVideoBtn" class="secondary" type="button">Make Smaller</button>
+            <button id="toggleVideoPanelBtn" class="secondary" type="button">Minimize</button>
           </div>
         </div>
-        <div class="video-controls">
-          <button id="startVideoBtn" class="secondary">Start Camera</button>
-          <button id="muteBtn" class="secondary" disabled>Mute</button>
-          <button id="stopVideoBtn" class="secondary" disabled>Stop Camera</button>
+        <div class="video-panel-body">
+          <div class="video-grid">
+            <div>
+              <p>You</p>
+              <video id="localVideo" autoplay muted playsinline></video>
+            </div>
+            <div>
+              <p>Friend</p>
+              <video id="remoteVideo" autoplay playsinline></video>
+            </div>
+          </div>
+          <div class="video-controls">
+            <button id="startVideoBtn" class="secondary">Start Camera</button>
+            <button id="muteBtn" class="secondary" disabled>Mute</button>
+            <button id="stopVideoBtn" class="secondary" disabled>Stop Camera</button>
+          </div>
         </div>
         <audio id="remoteAudio" autoplay></audio>
       </section>

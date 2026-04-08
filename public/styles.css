@@ -19,11 +19,24 @@ body {
 }
 
 .app {
+  --video-panel-width: 360px;
+  --board-max-width: 700px;
   min-height: 100vh;
   display: grid;
   gap: 1rem;
-  grid-template-columns: 320px minmax(300px, 1fr) 360px;
+  grid-template-columns: 320px minmax(300px, 1fr) var(--video-panel-width);
   padding: 1rem;
+}
+
+.app.video-compact {
+  --video-panel-width: 260px;
+  --board-max-width: 780px;
+}
+
+.app.video-collapsed {
+  --video-panel-width: 0px;
+  --board-max-width: 900px;
+  grid-template-columns: 320px minmax(300px, 1fr) 0;
 }
 
 .panel {
@@ -122,8 +135,8 @@ button:disabled {
 
 .board {
   display: grid;
-  grid-template-columns: repeat(17, 1fr);
-  grid-template-rows: repeat(17, 1fr);
+  grid-template-columns: repeat(19, 1fr);
+  grid-template-rows: repeat(19, 1fr);
   gap: 0;
   background: linear-gradient(
       90deg,
@@ -135,7 +148,7 @@ button:disabled {
     #d5a067;
   padding: 0;
   border-radius: 6px;
-  width: min(92vw, 700px);
+  width: min(92vw, var(--board-max-width));
   aspect-ratio: 1;
   box-shadow: inset 0 0 0 1px rgba(79, 48, 22, 0.35);
 }
@@ -179,19 +192,19 @@ button:disabled {
   z-index: 1;
 }
 
-.board .cell:nth-child(-n + 17)::before {
+.board .cell:nth-child(-n + 19)::before {
   top: 50%;
 }
 
-.board .cell:nth-child(n + 273)::before {
+.board .cell:nth-child(n + 343)::before {
   bottom: 50%;
 }
 
-.board .cell:nth-child(17n + 1)::after {
+.board .cell:nth-child(19n + 1)::after {
   left: 50%;
 }
 
-.board .cell:nth-child(17n)::after {
+.board .cell:nth-child(19n)::after {
   right: 50%;
 }
 
@@ -247,8 +260,52 @@ button:disabled {
   box-shadow: inset 0 0 0 1px #bababa;
 }
 
+.video-panel {
+  overflow: hidden;
+}
+
+.video-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .video-panel h2 {
   margin-top: 0;
+  margin-bottom: 0;
+}
+
+.video-panel-actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.video-panel-actions button {
+  padding: 0.45rem 0.7rem;
+}
+
+.video-panel-body {
+  margin-top: 0.8rem;
+}
+
+.app.video-compact .video-grid {
+  gap: 0.35rem;
+}
+
+.app.video-compact .video-controls {
+  gap: 0.35rem;
+}
+
+.app.video-collapsed .video-panel {
+  padding: 0.85rem;
+  border-style: dashed;
+}
+
+.app.video-collapsed .video-panel-body,
+.app.video-collapsed #remoteAudio {
+  display: none;
 }
 
 .video-grid {
@@ -281,6 +338,11 @@ video {
 
 @media (max-width: 1120px) {
   .app {
+    grid-template-columns: 1fr;
+  }
+
+  .app.video-compact,
+  .app.video-collapsed {
     grid-template-columns: 1fr;
   }
 

@@ -3,11 +3,11 @@ const socket = io(API_BASE_URL || undefined, {
   withCredentials: true,
   transports: ["polling", "websocket"]
 });
-const BOARD_SIZE = 17;
+const BOARD_SIZE = 19;
 const STAR_POINTS = new Set([
-  "3,3", "3,8", "3,13",
-  "8,3", "8,8", "8,13",
-  "13,3", "13,8", "13,13"
+  "4,4", "4,10", "4,16",
+  "10,4", "10,10", "10,16",
+  "16,4", "16,10", "16,16"
 ]);
 
 let roomCode = null;
@@ -65,6 +65,10 @@ const stopVideoBtn = document.getElementById("stopVideoBtn");
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
 const remoteAudio = document.getElementById("remoteAudio");
+const appEl = document.querySelector(".app");
+const videoPanelEl = document.getElementById("videoPanel");
+const shrinkVideoBtn = document.getElementById("shrinkVideoBtn");
+const toggleVideoPanelBtn = document.getElementById("toggleVideoPanelBtn");
 const remoteStream = new MediaStream();
 
 function apiUrl(path) {
@@ -78,6 +82,29 @@ function redirectToLogin() {
 
 function showMessage(text) {
   message.textContent = text || "";
+}
+
+function updateVideoPanelButtons() {
+  if (!appEl) return;
+  const isCompact = appEl.classList.contains("video-compact");
+  const isCollapsed = appEl.classList.contains("video-collapsed");
+  shrinkVideoBtn.textContent = isCompact ? "Normal Size" : "Make Smaller";
+  toggleVideoPanelBtn.textContent = isCollapsed ? "Show Video" : "Minimize";
+  if (videoPanelEl) {
+    videoPanelEl.setAttribute("aria-expanded", String(!isCollapsed));
+  }
+}
+
+function toggleCompactVideoPanel() {
+  if (!appEl) return;
+  appEl.classList.toggle("video-compact");
+  updateVideoPanelButtons();
+}
+
+function toggleCollapseVideoPanel() {
+  if (!appEl) return;
+  appEl.classList.toggle("video-collapsed");
+  updateVideoPanelButtons();
 }
 
 function beautyFilter(level) {
@@ -766,6 +793,14 @@ startVideoBtn.addEventListener("click", async () => {
   }
 });
 
+shrinkVideoBtn.addEventListener("click", () => {
+  toggleCompactVideoPanel();
+});
+
+toggleVideoPanelBtn.addEventListener("click", () => {
+  toggleCollapseVideoPanel();
+});
+
 stopVideoBtn.addEventListener("click", () => {
   stopLocalMedia();
   closePeerConnection();
@@ -786,3 +821,4 @@ muteBtn.addEventListener("click", () => {
 updateHeader();
 renderBoard();
 ensureRtcConfigLoaded();
+updateVideoPanelButtons();
