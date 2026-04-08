@@ -8,52 +8,75 @@
   </head>
   <body>
     <main class="app">
-      <section class="panel">
-        <h1>Gomoku Online</h1>
-        <p class="sub">Play with a friend using a room code and built-in video call.</p>
-
-        <div class="room-actions">
-          <button id="createRoomBtn">Create Room</button>
-          <div class="join-row">
-            <input id="roomCodeInput" maxlength="8" placeholder="ROOM CODE" />
-            <button id="joinRoomBtn">Join Room</button>
+      <section id="gamePanel" class="panel game-panel">
+        <div class="panel-header">
+          <div class="traffic-lights" aria-label="Game panel controls">
+            <button id="toggleGamePanelBtn" class="traffic-light minimize-light" type="button" aria-label="Minimize game panel"></button>
+            <button id="shrinkGamePanelBtn" class="traffic-light resize-light" type="button" aria-label="Make game panel smaller"></button>
           </div>
+          <h1>Gomoku Online</h1>
         </div>
+        <div class="panel-body">
+          <p class="sub">Play with a friend using a room code, with voice call on join and optional video.</p>
 
-        <div class="status-row">
-          <span>Room:</span>
-          <strong id="roomCodeLabel">-</strong>
-        </div>
-        <div class="status-row">
-          <span>You are:</span>
-          <strong id="youAreLabel">-</strong>
-        </div>
-        <div class="status-row">
-          <span>Game:</span>
-          <strong id="gameStatusLabel">Create or join a room</strong>
-        </div>
+          <div class="room-actions">
+            <button id="createRoomBtn">Create Room</button>
+            <div class="join-row">
+              <input id="roomCodeInput" maxlength="8" placeholder="ROOM CODE" />
+              <button id="joinRoomBtn">Join Room</button>
+            </div>
+          </div>
 
-        <div class="game-controls">
-          <button id="undoBtn" class="secondary" disabled>Undo</button>
-          <button id="redoBtn" class="secondary" disabled>Redo</button>
-          <button id="resetBtn" class="secondary" disabled>Reset Game</button>
+          <div class="status-row">
+            <span>Room:</span>
+            <strong id="roomCodeLabel">-</strong>
+          </div>
+          <div class="status-row">
+            <span>You are:</span>
+            <strong id="youAreLabel">-</strong>
+          </div>
+          <div class="status-row">
+            <span>Game:</span>
+            <strong id="gameStatusLabel">Create or join a room</strong>
+          </div>
+
+          <p id="message" class="message"></p>
         </div>
-        <p id="message" class="message"></p>
       </section>
 
       <section class="board-wrap">
+        <div class="board-toolbar" aria-label="Game controls">
+          <button id="undoBtn" class="icon-control" type="button" aria-label="Undo" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 7L4 12L9 17" />
+              <path d="M5 12H12C16.418 12 20 15.582 20 20" />
+            </svg>
+          </button>
+          <button id="redoBtn" class="icon-control" type="button" aria-label="Redo" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 7L20 12L15 17" />
+              <path d="M19 12H12C7.582 12 4 15.582 4 20" />
+            </svg>
+          </button>
+          <button id="resetBtn" class="icon-control" type="button" aria-label="Reset Game" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 6V11H15" />
+              <path d="M20 11C18.613 7.987 15.68 6 12.5 6C7.806 6 4 9.806 4 14.5S7.806 23 12.5 23C16.102 23 19.181 20.759 20.5 17.6" />
+            </svg>
+          </button>
+        </div>
         <div id="board" class="board"></div>
       </section>
 
       <section id="videoPanel" class="panel video-panel">
-        <div class="video-panel-header">
-          <h2>Video Call</h2>
-          <div class="video-panel-actions">
-            <button id="shrinkVideoBtn" class="secondary" type="button">Make Smaller</button>
-            <button id="toggleVideoPanelBtn" class="secondary" type="button">Minimize</button>
+        <div class="panel-header">
+          <div class="traffic-lights" aria-label="Video panel controls">
+            <button id="toggleVideoPanelBtn" class="traffic-light minimize-light" type="button" aria-label="Minimize video panel"></button>
+            <button id="shrinkVideoBtn" class="traffic-light resize-light" type="button" aria-label="Make video panel smaller"></button>
           </div>
+          <h2>Call</h2>
         </div>
-        <div class="video-panel-body">
+        <div class="panel-body video-panel-body">
           <div class="video-grid">
             <div>
               <p>You</p>
@@ -64,10 +87,38 @@
               <video id="remoteVideo" autoplay playsinline></video>
             </div>
           </div>
-          <div class="video-controls">
-            <button id="startVideoBtn" class="secondary">Start Camera</button>
-            <button id="muteBtn" class="secondary" disabled>Mute</button>
-            <button id="stopVideoBtn" class="secondary" disabled>Stop Camera</button>
+          <div class="call-controls" aria-label="Call controls">
+            <button id="startVoiceBtn" class="call-action is-positive" type="button" aria-label="Start voice call" title="Start voice call">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7.5 4.5A2.5 2.5 0 0 0 5 7v10a2.5 2.5 0 0 0 2.5 2.5H10l4 3v-3h2.5A2.5 2.5 0 0 0 19 17V7a2.5 2.5 0 0 0-2.5-2.5h-9Z" />
+              </svg>
+            </button>
+            <button id="startVideoBtn" class="call-action is-positive" type="button" aria-label="Start video call" title="Start video call">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H14a2.5 2.5 0 0 1 2.5 2.5v1.3l3.6-2.4c.8-.54 1.9.03 1.9.99v9.24c0 .96-1.1 1.53-1.9.99l-3.6-2.4v1.3A2.5 2.5 0 0 1 14 19H6.5A2.5 2.5 0 0 1 4 16.5v-9Z" />
+              </svg>
+            </button>
+            <button id="toggleMicBtn" class="call-action is-positive" type="button" aria-label="Mute microphone" title="Mute microphone" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 15a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z" />
+                <path d="M18 11.5a6 6 0 0 1-12 0" />
+                <path d="M12 17.5V21" />
+              </svg>
+            </button>
+            <button id="toggleCameraBtn" class="call-action is-negative" type="button" aria-label="Turn camera on" title="Turn camera on" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H14a2.5 2.5 0 0 1 2.5 2.5v1.3l3.6-2.4c.8-.54 1.9.03 1.9.99v9.24c0 .96-1.1 1.53-1.9.99l-3.6-2.4v1.3A2.5 2.5 0 0 1 14 19H6.5A2.5 2.5 0 0 1 4 16.5v-9Z" />
+                <path d="M5 5l14 14" />
+              </svg>
+            </button>
+            <button id="endCallBtn" class="call-action is-negative" type="button" aria-label="End call" title="End call" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6.8 15.8c1.5 1.28 3.28 1.92 5.2 1.92s3.7-.64 5.2-1.92" />
+                <path d="M4.6 12.5c1.92-1.34 4.38-2.02 7.4-2.02 3.02 0 5.48.68 7.4 2.02" />
+                <path d="M18 14.4 20.4 17" />
+                <path d="M20.4 14.4 18 17" />
+              </svg>
+            </button>
           </div>
         </div>
         <audio id="remoteAudio" autoplay></audio>

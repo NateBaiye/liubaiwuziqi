@@ -14,7 +14,8 @@ let roomCode = null;
 let myMark = null;
 let currentState = null;
 
-let rawLocalStream = null;
+let micStream = null;
+let rawVideoStream = null;
 let localStream = null;
 let peerConnection = null;
 let isMuted = false;
@@ -39,6 +40,7 @@ let workingCanvas = null;
 let workingCtx = null;
 let currentPcGeneration = 0;
 let rtcConfigPromise = null;
+let renegotiating = false;
 
 let rtcConfig = {
   iceServers: [
@@ -58,10 +60,15 @@ const resetBtn = document.getElementById("resetBtn");
 const undoBtn = document.getElementById("undoBtn");
 const redoBtn = document.getElementById("redoBtn");
 const boardEl = document.getElementById("board");
+const gamePanelEl = document.getElementById("gamePanel");
+const shrinkGamePanelBtn = document.getElementById("shrinkGamePanelBtn");
+const toggleGamePanelBtn = document.getElementById("toggleGamePanelBtn");
 
+const startVoiceBtn = document.getElementById("startVoiceBtn");
 const startVideoBtn = document.getElementById("startVideoBtn");
-const muteBtn = document.getElementById("muteBtn");
-const stopVideoBtn = document.getElementById("stopVideoBtn");
+const toggleMicBtn = document.getElementById("toggleMicBtn");
+const toggleCameraBtn = document.getElementById("toggleCameraBtn");
+const endCallBtn = document.getElementById("endCallBtn");
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
 const remoteAudio = document.getElementById("remoteAudio");
@@ -84,15 +91,76 @@ function showMessage(text) {
   message.textContent = text || "";
 }
 
+function setCallButtonState(button, positive, label, title, icon) {
+  if (!button) return;
+  button.classList.toggle("is-positive", positive);
+  button.classList.toggle("is-negative", !positive);
+  button.setAttribute("aria-label", label);
+  button.setAttribute("title", title);
+  button.innerHTML = icon;
+}
+
+function updateCallControls() {
+  const inRoom = Boolean(roomCode && myMark);
+  const hasMic = Boolean(micStream);
+  const hasVideo = Boolean(outgoingProcessedVideoTrack);
+  const hasAnyLocalMedia = hasMic || hasVideo;
+
+  startVoiceBtn.disabled = !inRoom || hasMic;
+  startVideoBtn.disabled = !inRoom || hasVideo;
+  toggleMicBtn.disabled = !inRoom || !hasMic;
+  toggleCameraBtn.disabled = !inRoom || (!hasMic && !hasVideo);
+  endCallBtn.disabled = !hasAnyLocalMedia && !peerConnection;
+
+  setCallButtonState(
+    toggleMicBtn,
+    !isMuted,
+    isMuted ? "Turn microphone on" : "Turn microphone off",
+    isMuted ? "Turn microphone on" : "Turn microphone off",
+    isMuted
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z" /><path d="M18 11.5a6 6 0 0 1-12 0" /><path d="M12 17.5V21" /><path d="M4.5 4.5 19.5 19.5" /></svg>'
+      : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z" /><path d="M18 11.5a6 6 0 0 1-12 0" /><path d="M12 17.5V21" /></svg>'
+  );
+
+  setCallButtonState(
+    toggleCameraBtn,
+    hasVideo,
+    hasVideo ? "Turn camera off" : "Turn camera on",
+    hasVideo ? "Turn camera off" : "Turn camera on",
+    hasVideo
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H14a2.5 2.5 0 0 1 2.5 2.5v1.3l3.6-2.4c.8-.54 1.9.03 1.9.99v9.24c0 .96-1.1 1.53-1.9.99l-3.6-2.4v1.3A2.5 2.5 0 0 1 14 19H6.5A2.5 2.5 0 0 1 4 16.5v-9Z" /></svg>'
+      : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H14a2.5 2.5 0 0 1 2.5 2.5v1.3l3.6-2.4c.8-.54 1.9.03 1.9.99v9.24c0 .96-1.1 1.53-1.9.99l-3.6-2.4v1.3A2.5 2.5 0 0 1 14 19H6.5A2.5 2.5 0 0 1 4 16.5v-9Z" /><path d="M5 5 19 19" /></svg>'
+  );
+}
+
 function updateVideoPanelButtons() {
   if (!appEl) return;
+  const isGameCompact = appEl.classList.contains("game-compact");
+  const isGameCollapsed = appEl.classList.contains("game-collapsed");
   const isCompact = appEl.classList.contains("video-compact");
   const isCollapsed = appEl.classList.contains("video-collapsed");
-  shrinkVideoBtn.textContent = isCompact ? "Normal Size" : "Make Smaller";
-  toggleVideoPanelBtn.textContent = isCollapsed ? "Show Video" : "Minimize";
+  shrinkGamePanelBtn.setAttribute("aria-label", isGameCompact ? "Restore game panel size" : "Make game panel smaller");
+  toggleGamePanelBtn.setAttribute("aria-label", isGameCollapsed ? "Show game panel" : "Minimize game panel");
+  shrinkVideoBtn.setAttribute("aria-label", isCompact ? "Restore video panel size" : "Make video panel smaller");
+  toggleVideoPanelBtn.setAttribute("aria-label", isCollapsed ? "Show video panel" : "Minimize video panel");
+  if (gamePanelEl) {
+    gamePanelEl.setAttribute("aria-expanded", String(!isGameCollapsed));
+  }
   if (videoPanelEl) {
     videoPanelEl.setAttribute("aria-expanded", String(!isCollapsed));
   }
+}
+
+function toggleCompactGamePanel() {
+  if (!appEl) return;
+  appEl.classList.toggle("game-compact");
+  updateVideoPanelButtons();
+}
+
+function toggleCollapseGamePanel() {
+  if (!appEl) return;
+  appEl.classList.toggle("game-collapsed");
+  updateVideoPanelButtons();
 }
 
 function toggleCompactVideoPanel() {
@@ -307,7 +375,51 @@ async function createProcessedVideoStream(rawStream) {
   localVideo.playsInline = true;
   await localVideo.play().catch(() => {});
 
-  return new MediaStream([outgoingProcessedVideoTrack, ...rawStream.getAudioTracks()]);
+  return rebuildLocalStream();
+}
+
+async function syncPeerConnectionTracks() {
+  if (!peerConnection) return;
+
+  const audioTrack = micStream?.getAudioTracks?.()[0] || null;
+  const videoTrack = outgoingProcessedVideoTrack || null;
+  const senders = peerConnection.getSenders();
+
+  const audioSender = senders.find((sender) => sender.track?.kind === "audio");
+  if (audioTrack) {
+    if (audioSender) {
+      await audioSender.replaceTrack(audioTrack);
+    } else {
+      peerConnection.addTrack(audioTrack, localStream);
+    }
+  } else if (audioSender) {
+    peerConnection.removeTrack(audioSender);
+  }
+
+  const videoSender = senders.find((sender) => sender.track?.kind === "video");
+  if (videoTrack) {
+    if (videoSender) {
+      await videoSender.replaceTrack(videoTrack);
+    } else {
+      peerConnection.addTrack(videoTrack, localStream);
+    }
+  } else if (videoSender) {
+    peerConnection.removeTrack(videoSender);
+  }
+}
+
+async function rebuildLocalStream() {
+  const tracks = [];
+  if (outgoingProcessedVideoTrack) {
+    tracks.push(outgoingProcessedVideoTrack);
+  }
+  if (micStream) {
+    tracks.push(...micStream.getAudioTracks());
+  }
+  localStream = new MediaStream(tracks);
+  await syncPeerConnectionTracks();
+  updateCallControls();
+  return localStream;
 }
 
 function emitWithAck(eventName, payload, onSuccess, fallbackErrorMessage) {
@@ -351,6 +463,25 @@ function ensureRtcConfigLoaded() {
   return rtcConfigPromise;
 }
 
+async function renegotiatePeerConnection() {
+  if (renegotiating || !peerConnection || !currentState || currentState.players.length < 2) {
+    return;
+  }
+  if (peerConnection.signalingState !== "stable") return;
+
+  renegotiating = true;
+  try {
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    socket.emit("webrtc-offer", { offer });
+    callStarted = true;
+  } catch (err) {
+    showMessage(`Call update failed: ${err.message}`);
+  } finally {
+    renegotiating = false;
+  }
+}
+
 function markToText(mark) {
   return mark === 1 ? "Black" : mark === 2 ? "White" : "-";
 }
@@ -362,6 +493,7 @@ function isStarPoint(row, col) {
 function updateHeader() {
   roomCodeLabel.textContent = roomCode || "-";
   youAreLabel.textContent = markToText(myMark);
+  updateCallControls();
 
   if (!currentState) {
     gameStatusLabel.textContent = "Create or join a room";
@@ -557,27 +689,39 @@ socket.on("peer-left", () => {
   remoteAudio.srcObject = null;
   remoteStream.getTracks().forEach((track) => remoteStream.removeTrack(track));
   showMessage("Your friend disconnected.");
+  updateCallControls();
 });
 
-async function startLocalMedia() {
-  if (localStream) return localStream;
+async function startLocalAudio() {
   await ensureRtcConfigLoaded();
-  rawLocalStream = await navigator.mediaDevices.getUserMedia({
-    video: true,
+  if (micStream) return localStream || rebuildLocalStream();
+  micStream = await navigator.mediaDevices.getUserMedia({
     audio: {
       echoCancellation: true,
       noiseSuppression: true,
       autoGainControl: true
-    }
+    },
+    video: false
   });
-  localStream = await createProcessedVideoStream(rawLocalStream);
-  muteBtn.disabled = false;
-  stopVideoBtn.disabled = false;
-  return localStream;
+  isMuted = false;
+  updateCallControls();
+  return rebuildLocalStream();
 }
 
-function stopLocalMedia() {
-  if (!localStream && !rawLocalStream) return;
+async function startLocalMedia() {
+  await ensureRtcConfigLoaded();
+  await startLocalAudio();
+  if (outgoingProcessedVideoTrack) return localStream;
+  rawVideoStream = await navigator.mediaDevices.getUserMedia({
+    video: true,
+    audio: false
+  });
+  updateCallControls();
+  return createProcessedVideoStream(rawVideoStream);
+}
+
+async function stopLocalMedia() {
+  if (!outgoingProcessedVideoTrack && !rawVideoStream) return;
   if (beautyFrameRequestId) {
     cancelAnimationFrame(beautyFrameRequestId);
     beautyFrameRequestId = null;
@@ -586,9 +730,6 @@ function stopLocalMedia() {
     beautySourceVideo.pause();
     beautySourceVideo.srcObject = null;
     beautySourceVideo = null;
-  }
-  if (localStream) {
-    localStream.getVideoTracks().forEach((t) => t.stop());
   }
   if (previewProcessedVideoTrack) {
     previewProcessedVideoTrack.stop();
@@ -599,8 +740,8 @@ function stopLocalMedia() {
     outgoingProcessedVideoTrack = null;
   }
   beautyOutputStream = null;
-  if (rawLocalStream) {
-    rawLocalStream.getTracks().forEach((t) => t.stop());
+  if (rawVideoStream) {
+    rawVideoStream.getTracks().forEach((t) => t.stop());
   }
   beautyCanvas = null;
   beautyCtx = null;
@@ -612,13 +753,23 @@ function stopLocalMedia() {
   smoothedFaceTiltRad = 0;
   faceDetectPending = false;
   beautyFrameCounter = 0;
-  rawLocalStream = null;
-  localStream = null;
+  rawVideoStream = null;
   localVideo.srcObject = null;
-  muteBtn.disabled = true;
-  stopVideoBtn.disabled = true;
+  await rebuildLocalStream();
+  updateCallControls();
+  await renegotiatePeerConnection();
+}
+
+async function endCall() {
+  await stopLocalMedia();
+  if (micStream) {
+    micStream.getTracks().forEach((track) => track.stop());
+    micStream = null;
+  }
   isMuted = false;
-  muteBtn.textContent = "Mute";
+  localStream = new MediaStream();
+  closePeerConnection();
+  updateCallControls();
 }
 
 function ensurePeerConnection() {
@@ -676,7 +827,7 @@ function ensurePeerConnection() {
       remoteStream.getTracks().forEach((track) => remoteStream.removeTrack(track));
       callStarted = false;
       pendingIceCandidates = [];
-      showMessage("Video call disconnected. Click Start Camera again if it does not recover.");
+      showMessage("Call disconnected. Use the call controls to reconnect voice or add video again.");
     }
   };
 
@@ -710,6 +861,7 @@ function closePeerConnection() {
   remoteStream.getTracks().forEach((track) => remoteStream.removeTrack(track));
   pendingIceCandidates = [];
   callStarted = false;
+  updateCallControls();
 }
 
 async function flushPendingIceCandidates(pc) {
@@ -721,7 +873,7 @@ async function flushPendingIceCandidates(pc) {
 }
 
 async function maybeStartCallFlow() {
-  if (!currentState || currentState.players.length < 2 || !roomCode || !myMark || !localStream) {
+  if (!currentState || currentState.players.length < 2 || !roomCode || !myMark || !localStream || localStream.getTracks().length === 0) {
     return;
   }
 
@@ -739,7 +891,6 @@ async function maybeStartCallFlow() {
 
 socket.on("webrtc-offer", async ({ offer }) => {
   try {
-    await startLocalMedia();
     const pc = ensurePeerConnection();
     if (pc.signalingState !== "stable") {
       closePeerConnection();
@@ -782,15 +933,33 @@ socket.on("webrtc-ice-candidate", async ({ candidate }) => {
   }
 });
 
+startVoiceBtn.addEventListener("click", async () => {
+  try {
+    await startLocalAudio();
+    await maybeStartCallFlow();
+    await renegotiatePeerConnection();
+    showMessage("");
+  } catch (err) {
+    showMessage(`Microphone access failed: ${err.message}`);
+  }
+});
+
 startVideoBtn.addEventListener("click", async () => {
   try {
-    await ensureRtcConfigLoaded();
     await startLocalMedia();
     await maybeStartCallFlow();
     showMessage("");
   } catch (err) {
-    showMessage(`Camera/mic access failed: ${err.message}`);
+    showMessage(`Camera access failed: ${err.message}`);
   }
+});
+
+shrinkGamePanelBtn.addEventListener("click", () => {
+  toggleCompactGamePanel();
+});
+
+toggleGamePanelBtn.addEventListener("click", () => {
+  toggleCollapseGamePanel();
 });
 
 shrinkVideoBtn.addEventListener("click", () => {
@@ -801,24 +970,38 @@ toggleVideoPanelBtn.addEventListener("click", () => {
   toggleCollapseVideoPanel();
 });
 
-stopVideoBtn.addEventListener("click", () => {
-  stopLocalMedia();
-  closePeerConnection();
-  remoteVideo.srcObject = null;
-  remoteAudio.srcObject = null;
+toggleCameraBtn.addEventListener("click", async () => {
+  if (outgoingProcessedVideoTrack) {
+    await stopLocalMedia();
+  } else {
+    try {
+      await startLocalMedia();
+      await maybeStartCallFlow();
+      await renegotiatePeerConnection();
+    } catch (err) {
+      showMessage(`Camera access failed: ${err.message}`);
+      return;
+    }
+  }
+  showMessage("");
 });
 
-muteBtn.addEventListener("click", () => {
-  if (!rawLocalStream && !localStream) return;
+toggleMicBtn.addEventListener("click", async () => {
+  if (!micStream) return;
   isMuted = !isMuted;
-  const stream = rawLocalStream || localStream;
-  stream.getAudioTracks().forEach((track) => {
+  micStream.getAudioTracks().forEach((track) => {
     track.enabled = !isMuted;
   });
-  muteBtn.textContent = isMuted ? "Unmute" : "Mute";
+  updateCallControls();
+});
+
+endCallBtn.addEventListener("click", async () => {
+  await endCall();
+  showMessage("");
 });
 
 updateHeader();
 renderBoard();
 ensureRtcConfigLoaded();
 updateVideoPanelButtons();
+updateCallControls();
