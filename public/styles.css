@@ -15,15 +15,15 @@ body {
   margin: 0;
   background: #000;
   color: var(--ink);
-  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  font-family: "Times New Roman", Times, serif;
 }
 
 .app {
   --game-panel-width: 320px;
   --video-panel-width: 360px;
   --board-max-width: 700px;
-  --toolbar-control-size: 40px;
-  --toolbar-icon-size: 26px;
+  --toolbar-control-size: clamp(40px, calc(var(--board-max-width) * 0.058), 52px);
+  --toolbar-icon-size: clamp(26px, calc(var(--board-max-width) * 0.038), 36px);
   min-height: 100vh;
   display: grid;
   gap: 1rem;
@@ -33,41 +33,23 @@ body {
 
 .app.game-compact {
   --game-panel-width: 236px;
-  --toolbar-control-size: 43px;
-  --toolbar-icon-size: 28px;
 }
 
 .app.game-collapsed {
   --game-panel-width: 84px;
-  --toolbar-control-size: 49px;
-  --toolbar-icon-size: 33px;
 }
 
 .app.video-compact {
   --video-panel-width: 260px;
-  --toolbar-control-size: 43px;
-  --toolbar-icon-size: 28px;
 }
 
 .app.video-collapsed {
   --video-panel-width: 84px;
-  --toolbar-control-size: 49px;
-  --toolbar-icon-size: 33px;
-}
-
-.app.game-compact.video-compact {
-  --toolbar-control-size: 46px;
-  --toolbar-icon-size: 30px;
 }
 
 .app.game-collapsed,
 .app.video-collapsed {
   --board-max-width: 900px;
-}
-
-.app.game-collapsed.video-collapsed {
-  --toolbar-control-size: 52px;
-  --toolbar-icon-size: 36px;
 }
 
 .panel {
@@ -76,6 +58,11 @@ body {
   border-radius: 14px;
   padding: 1rem;
   overflow: hidden;
+  position: relative;
+}
+
+.panel-content {
+  width: 100%;
 }
 
 .sub {
@@ -148,13 +135,14 @@ button:disabled {
 }
 
 .panel-header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: flex-start;
   gap: 0.85rem;
-  padding-top: 0.35rem;
-  padding-left: 0.35rem;
-  min-height: 22px;
+  min-height: 24px;
+  padding-top: 0.15rem;
+  padding-left: 3.1rem;
 }
 
 .panel-header h1,
@@ -164,6 +152,9 @@ button:disabled {
 }
 
 .traffic-lights {
+  position: absolute;
+  top: 0;
+  left: 0;
   display: flex;
   gap: 0.5rem;
   flex-shrink: 0;
@@ -205,6 +196,7 @@ button:disabled {
   height: 1.8px;
   left: 5px;
   top: 8px;
+  background: rgba(66, 44, 0, 0.82);
   border-radius: 999px;
 }
 
@@ -214,19 +206,20 @@ button:disabled {
   height: 0;
   border-top: 3px solid transparent;
   border-bottom: 3px solid transparent;
-  border-left: 4px solid rgba(66, 44, 0, 0.82);
 }
 
 .resize-light::before {
-  left: 5px;
-  top: 9px;
+  left: 4px;
+  top: 8px;
+  border-right: 4px solid rgba(66, 44, 0, 0.82);
   transform: rotate(-39deg);
   transform-origin: center;
 }
 
 .resize-light::after {
-  left: 9px;
-  top: 5px;
+  left: 10px;
+  top: 6px;
+  border-left: 4px solid rgba(66, 44, 0, 0.82);
   transform: rotate(-39deg);
   transform-origin: center;
 }
@@ -249,8 +242,8 @@ button:disabled {
 
 .board-toolbar {
   position: absolute;
-  top: 0.8rem;
-  right: 1rem;
+  top: 0.95rem;
+  right: 1.4rem;
   display: flex;
   gap: 0.45rem;
   align-items: center;
@@ -413,15 +406,18 @@ button:disabled {
   box-shadow: inset 0 0 0 1px #bababa;
 }
 
-.app.game-compact .game-panel .panel-header,
-.app.game-compact .game-panel .panel-body {
+.app.game-compact .game-panel .panel-content {
   transform: scale(0.84);
   transform-origin: top left;
   width: calc(100% / 0.84);
 }
 
+.app.game-compact .game-panel {
+  overflow: hidden;
+}
+
 .app.game-compact .game-panel .panel-body {
-  margin-top: -1.1rem;
+  margin-top: 0.8rem;
 }
 
 .app.video-compact .video-grid {
@@ -429,18 +425,18 @@ button:disabled {
 }
 
 .app.video-compact .call-controls {
-  grid-template-columns: repeat(4, 56px);
-  gap: 0.7rem 0.75rem;
+  grid-template-columns: repeat(4, 48px);
+  gap: 0.45rem;
 }
 
 .app.video-compact .call-action {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
 }
 
 .app.video-compact .call-action svg {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
 }
 
 .app.game-collapsed .game-panel,
@@ -497,6 +493,7 @@ video {
   display: grid;
   grid-template-columns: repeat(4, 68px);
   width: max-content;
+  max-width: 100%;
   margin-left: auto;
   margin-right: auto;
   gap: 0.95rem 1rem;
