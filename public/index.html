@@ -11,20 +11,16 @@
       <section id="gamePanel" class="panel game-panel">
         <div class="panel-content">
           <div class="panel-header">
-            <div class="traffic-lights" aria-label="Game panel controls">
-              <button id="toggleGamePanelBtn" class="traffic-light minimize-light" type="button" aria-label="Minimize game panel"></button>
-              <button id="shrinkGamePanelBtn" class="traffic-light resize-light" type="button" aria-label="Make game panel smaller"></button>
-            </div>
             <h1>Gomoku Online</h1>
           </div>
           <div class="panel-body">
-            <p class="sub">Play with a friend using a room code, with voice call on join and optional video.</p>
+            <p class="sub">Play with a friend using a room code, with voice call and video call option.</p>
 
             <div class="room-actions">
               <button id="createRoomBtn">Create Room</button>
               <div class="join-row">
                 <input id="roomCodeInput" maxlength="8" placeholder="ROOM CODE" />
-                <button id="joinRoomBtn">Join Room</button>
+                <button id="joinRoomBtn" class="secondary">Join Room</button>
               </div>
             </div>
 
@@ -71,83 +67,49 @@
       </section>
 
       <section id="videoPanel" class="panel video-panel">
-        <div class="panel-header">
-          <div class="traffic-lights" aria-label="Video panel controls">
-            <button id="toggleVideoPanelBtn" class="traffic-light minimize-light" type="button" aria-label="Minimize video panel"></button>
-            <button id="shrinkVideoBtn" class="traffic-light resize-light" type="button" aria-label="Make video panel smaller"></button>
+        <div class="panel-content">
+          <div class="panel-header">
+            <h2>Call</h2>
           </div>
-          <h2>Call</h2>
-        </div>
-        <div class="panel-body video-panel-body">
-          <div class="video-grid">
-            <div>
-              <p>You</p>
-              <video id="localVideo" autoplay muted playsinline></video>
+          <div class="panel-body video-panel-body">
+            <div class="video-grid">
+              <div class="video-card" id="localVideoCard">
+                <p>You</p>
+                <div class="video-box">
+                  <div class="video-placeholder" aria-hidden="true">
+                    <div class="video-avatar">Y</div>
+                    <span>You</span>
+                  </div>
+                  <video id="localVideo" autoplay muted playsinline></video>
+                </div>
+              </div>
+              <div class="video-card" id="remoteVideoCard">
+                <p>Friend</p>
+                <div class="video-box">
+                  <div class="video-placeholder" aria-hidden="true">
+                    <div class="video-avatar">F</div>
+                    <span>Friend</span>
+                  </div>
+                  <video id="remoteVideo" autoplay playsinline></video>
+                </div>
+              </div>
             </div>
-            <div>
-              <p>Friend</p>
-              <video id="remoteVideo" autoplay playsinline></video>
+            <div class="call-toolbar" aria-label="Call controls">
+              <div class="call-controls call-group" aria-label="Call controls">
+                <button id="startVideoBtn" class="call-action is-positive call-action-image icon-video" type="button" aria-label="Start video call" title="Start video call">
+                  <img src="icons/video-on.png" alt="" aria-hidden="true" class="call-icon-image" />
+                </button>
+                <button id="startMicBtn" class="call-action is-positive call-action-image icon-mic" type="button" aria-label="Turn microphone on" title="Turn microphone on">
+                  <img src="icons/mic-on.png" alt="" aria-hidden="true" class="call-icon-image" />
+                </button>
+                <button id="startCameraBtn" class="call-action is-positive call-action-image icon-camera" type="button" aria-label="Turn camera on" title="Turn camera on">
+                  <img src="icons/camera-on.png" alt="" aria-hidden="true" class="call-icon-image" />
+                </button>
+                <button id="startVoiceBtn" class="call-action is-positive call-action-image icon-phone" type="button" aria-label="Start voice call" title="Start voice call">
+                  <img src="icons/phone-on.png" alt="" aria-hidden="true" class="call-icon-image" />
+                </button>
+              </div>
             </div>
-          </div>
-          <div class="call-controls" aria-label="Call controls">
-            <button id="startVideoBtn" class="call-action is-positive" type="button" aria-label="Start video call" title="Start video call">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="3.2" y="7" width="11.8" height="10" rx="1.5" ry="1.5" />
-                <path d="M15.3 10 20.6 7.4V16.6L15.3 14Z" />
-              </svg>
-            </button>
-            <button id="startMicBtn" class="call-action is-positive" type="button" aria-label="Turn microphone on" title="Turn microphone on">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="9.1" y="4" width="5.8" height="10" rx="2.9" ry="2.9" />
-                <path d="M7.2 11.9a4.8 4.8 0 0 0 9.6 0" />
-                <path d="M12 16.9V20" />
-                <path d="M9.2 20H14.8" />
-              </svg>
-            </button>
-            <button id="startCameraBtn" class="call-action is-positive" type="button" aria-label="Turn camera on" title="Turn camera on">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M7.1 7.3h1.7l.9-1.35h4.6l.9 1.35h1.7A2.15 2.15 0 0 1 19 9.45v6.25A2.3 2.3 0 0 1 16.7 18H7.3A2.3 2.3 0 0 1 5 15.7V9.45A2.15 2.15 0 0 1 7.1 7.3Z" />
-                <circle cx="12" cy="12" r="2.45" fill="none" />
-                <circle cx="17.1" cy="9.25" r="0.55" stroke="none" />
-              </svg>
-            </button>
-            <button id="startVoiceBtn" class="call-action is-positive" type="button" aria-label="Start voice call" title="Start voice call">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M8.35 5.95c.52-.46 1.22-.54 1.83-.2l1.58.88c.56.31.78 1 .52 1.59l-.72 1.58c.76 1.18 1.76 2.19 2.95 2.95l1.58-.72c.59-.27 1.28-.04 1.59.52l.88 1.58c.34.61.26 1.31-.2 1.83l-.77.87c-.64.72-1.67 1.03-2.62.8-2.15-.53-4.22-1.88-6.11-3.78C7.64 12.1 6.29 10.03 5.76 7.88c-.23-.95.08-1.98.8-2.62Z" />
-              </svg>
-            </button>
-
-            <button id="stopVideoBtn" class="call-action is-negative" type="button" aria-label="Stop video call" title="Stop video call">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="3.2" y="7" width="11.8" height="10" rx="1.5" ry="1.5" />
-                <path d="M15.3 10 20.6 7.4V16.6L15.3 14Z" />
-                <path d="M4.6 18.6 19.4 5.4" fill="none" />
-              </svg>
-            </button>
-            <button id="muteMicBtn" class="call-action is-negative" type="button" aria-label="Turn microphone off" title="Turn microphone off">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="9.1" y="4" width="5.8" height="10" rx="2.9" ry="2.9" />
-                <path d="M7.2 11.9a4.8 4.8 0 0 0 9.6 0" />
-                <path d="M12 16.9V20" />
-                <path d="M9.2 20H14.8" />
-                <path d="M4.7 18.7 19.3 5.3" fill="none" />
-              </svg>
-            </button>
-            <button id="stopCameraBtn" class="call-action is-negative" type="button" aria-label="Turn camera off" title="Turn camera off">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M7.1 7.3h1.7l.9-1.35h4.6l.9 1.35h1.7A2.15 2.15 0 0 1 19 9.45v6.25A2.3 2.3 0 0 1 16.7 18H7.3A2.3 2.3 0 0 1 5 15.7V9.45A2.15 2.15 0 0 1 7.1 7.3Z" />
-                <circle cx="12" cy="12" r="2.45" fill="none" />
-                <circle cx="17.1" cy="9.25" r="0.55" stroke="none" />
-                <path d="M4.7 18.7 19.3 5.3" fill="none" />
-              </svg>
-            </button>
-            <button id="endCallBtn" class="call-action is-negative" type="button" aria-label="End call" title="End call">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M8.35 5.95c.52-.46 1.22-.54 1.83-.2l1.58.88c.56.31.78 1 .52 1.59l-.72 1.58c.76 1.18 1.76 2.19 2.95 2.95l1.58-.72c.59-.27 1.28-.04 1.59.52l.88 1.58c.34.61.26 1.31-.2 1.83l-.77.87c-.39.44-.95.73-1.56.84" />
-                <path d="M16.4 14.9 19.45 17.95" fill="none" />
-                <path d="M19.45 14.9 16.4 17.95" fill="none" />
-              </svg>
-            </button>
           </div>
         </div>
         <audio id="remoteAudio" autoplay></audio>
