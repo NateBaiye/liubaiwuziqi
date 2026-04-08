@@ -33,25 +33,36 @@ body {
 
 .app.game-compact {
   --game-panel-width: 236px;
+  --toolbar-control-size: 43px;
+  --toolbar-icon-size: 28px;
 }
 
 .app.game-collapsed {
   --game-panel-width: 84px;
+  --toolbar-control-size: 49px;
+  --toolbar-icon-size: 33px;
 }
 
 .app.video-compact {
   --video-panel-width: 260px;
+  --toolbar-control-size: 43px;
+  --toolbar-icon-size: 28px;
 }
 
 .app.video-collapsed {
   --video-panel-width: 84px;
+  --toolbar-control-size: 49px;
+  --toolbar-icon-size: 33px;
+}
+
+.app.game-compact.video-compact {
+  --toolbar-control-size: 46px;
+  --toolbar-icon-size: 30px;
 }
 
 .app.game-collapsed,
 .app.video-collapsed {
   --board-max-width: 900px;
-  --toolbar-control-size: 46px;
-  --toolbar-icon-size: 31px;
 }
 
 .app.game-collapsed.video-collapsed {
@@ -141,8 +152,9 @@ button:disabled {
   align-items: center;
   justify-content: flex-start;
   gap: 0.85rem;
-  padding-top: 0.15rem;
-  padding-left: 0.15rem;
+  padding-top: 0.35rem;
+  padding-left: 0.35rem;
+  min-height: 22px;
 }
 
 .panel-header h1,
@@ -157,6 +169,7 @@ button:disabled {
   flex-shrink: 0;
   align-items: center;
   justify-content: flex-start;
+  margin: 0;
 }
 
 .traffic-light {
@@ -185,7 +198,6 @@ button:disabled {
 .resize-light::after {
   content: "";
   position: absolute;
-  background: rgba(66, 44, 0, 0.8);
 }
 
 .minimize-light::before {
@@ -198,19 +210,25 @@ button:disabled {
 
 .resize-light::before,
 .resize-light::after {
-  width: 10px;
-  height: 1.9px;
-  left: 4px;
-  top: 8px;
-  border-radius: 999px;
+  width: 0;
+  height: 0;
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
+  border-left: 4px solid rgba(66, 44, 0, 0.82);
 }
 
 .resize-light::before {
-  transform: rotate(-38deg);
+  left: 5px;
+  top: 9px;
+  transform: rotate(-39deg);
+  transform-origin: center;
 }
 
 .resize-light::after {
-  display: none;
+  left: 9px;
+  top: 5px;
+  transform: rotate(-39deg);
+  transform-origin: center;
 }
 
 .panel-body {
@@ -395,17 +413,34 @@ button:disabled {
   box-shadow: inset 0 0 0 1px #bababa;
 }
 
-.app.game-compact .room-actions {
-  gap: 0.5rem;
+.app.game-compact .game-panel .panel-header,
+.app.game-compact .game-panel .panel-body {
+  transform: scale(0.84);
+  transform-origin: top left;
+  width: calc(100% / 0.84);
 }
 
-.app.game-compact .join-row,
-.app.video-compact .call-controls {
-  gap: 0.35rem;
+.app.game-compact .game-panel .panel-body {
+  margin-top: -1.1rem;
 }
 
 .app.video-compact .video-grid {
   gap: 0.35rem;
+}
+
+.app.video-compact .call-controls {
+  grid-template-columns: repeat(4, 56px);
+  gap: 0.7rem 0.75rem;
+}
+
+.app.video-compact .call-action {
+  width: 56px;
+  height: 56px;
+}
+
+.app.video-compact .call-action svg {
+  width: 28px;
+  height: 28px;
 }
 
 .app.game-collapsed .game-panel,
@@ -459,15 +494,20 @@ video {
 
 .call-controls {
   margin-top: 0.8rem;
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, 68px);
+  width: max-content;
+  margin-left: auto;
+  margin-right: auto;
+  gap: 0.95rem 1rem;
   align-items: center;
+  justify-items: center;
+  justify-content: center;
 }
 
 .call-action {
-  width: 48px;
-  height: 48px;
+  width: 68px;
+  height: 68px;
   border-radius: 999px;
   padding: 0;
   display: inline-flex;
@@ -478,8 +518,8 @@ video {
 }
 
 .call-action svg {
-  width: 22px;
-  height: 22px;
+  width: 34px;
+  height: 34px;
   stroke: currentColor;
   fill: currentColor;
   stroke-width: 1.8;

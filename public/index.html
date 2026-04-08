@@ -88,35 +88,64 @@
             </div>
           </div>
           <div class="call-controls" aria-label="Call controls">
-            <button id="startVoiceBtn" class="call-action is-positive" type="button" aria-label="Start voice call" title="Start voice call">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M7.5 4.5A2.5 2.5 0 0 0 5 7v10a2.5 2.5 0 0 0 2.5 2.5H10l4 3v-3h2.5A2.5 2.5 0 0 0 19 17V7a2.5 2.5 0 0 0-2.5-2.5h-9Z" />
-              </svg>
-            </button>
             <button id="startVideoBtn" class="call-action is-positive" type="button" aria-label="Start video call" title="Start video call">
               <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H14a2.5 2.5 0 0 1 2.5 2.5v1.3l3.6-2.4c.8-.54 1.9.03 1.9.99v9.24c0 .96-1.1 1.53-1.9.99l-3.6-2.4v1.3A2.5 2.5 0 0 1 14 19H6.5A2.5 2.5 0 0 1 4 16.5v-9Z" />
+                <rect x="3.5" y="7" width="11.5" height="10" rx="1.5" ry="1.5" />
+                <path d="M15 10.2 20.5 7.5V16.5L15 13.8Z" />
               </svg>
             </button>
-            <button id="toggleMicBtn" class="call-action is-positive" type="button" aria-label="Mute microphone" title="Mute microphone" disabled>
+            <button id="startMicBtn" class="call-action is-positive" type="button" aria-label="Turn microphone on" title="Turn microphone on">
               <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 15a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z" />
-                <path d="M18 11.5a6 6 0 0 1-12 0" />
-                <path d="M12 17.5V21" />
+                <rect x="9.1" y="4" width="5.8" height="10" rx="2.9" ry="2.9" />
+                <path d="M7.2 11.9a4.8 4.8 0 0 0 9.6 0" />
+                <path d="M12 16.9V20" />
+                <path d="M9.2 20H14.8" />
               </svg>
             </button>
-            <button id="toggleCameraBtn" class="call-action is-negative" type="button" aria-label="Turn camera on" title="Turn camera on" disabled>
+            <button id="startCameraBtn" class="call-action is-positive" type="button" aria-label="Turn camera on" title="Turn camera on">
               <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H14a2.5 2.5 0 0 1 2.5 2.5v1.3l3.6-2.4c.8-.54 1.9.03 1.9.99v9.24c0 .96-1.1 1.53-1.9.99l-3.6-2.4v1.3A2.5 2.5 0 0 1 14 19H6.5A2.5 2.5 0 0 1 4 16.5v-9Z" />
-                <path d="M5 5l14 14" />
+                <path d="M5 8.2A2.2 2.2 0 0 1 7.2 6H16.8A2.2 2.2 0 0 1 19 8.2V15.8A2.2 2.2 0 0 1 16.8 18H7.2A2.2 2.2 0 0 1 5 15.8Z" />
+                <circle cx="12" cy="12" r="2.6" fill="none" />
               </svg>
             </button>
-            <button id="endCallBtn" class="call-action is-negative" type="button" aria-label="End call" title="End call" disabled>
+            <button id="startVoiceBtn" class="call-action is-positive" type="button" aria-label="Start voice call" title="Start voice call">
               <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M6.8 15.8c1.5 1.28 3.28 1.92 5.2 1.92s3.7-.64 5.2-1.92" />
-                <path d="M4.6 12.5c1.92-1.34 4.38-2.02 7.4-2.02 3.02 0 5.48.68 7.4 2.02" />
-                <path d="M18 14.4 20.4 17" />
-                <path d="M20.4 14.4 18 17" />
+                <path d="M16.8 14.8c-1.28 1.08-2.85 1.62-4.8 1.62s-3.52-.54-4.8-1.62" fill="none" />
+                <path d="M5.2 12.1c1.75-1.16 4.02-1.75 6.8-1.75 2.78 0 5.05.59 6.8 1.75" fill="none" />
+                <path d="M7.1 13.4 5.7 17.2" fill="none" />
+                <path d="M16.9 13.4 18.3 17.2" fill="none" />
+              </svg>
+            </button>
+
+            <button id="stopVideoBtn" class="call-action is-negative" type="button" aria-label="Stop video call" title="Stop video call">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3.5" y="7" width="11.5" height="10" rx="1.5" ry="1.5" />
+                <path d="M15 10.2 20.5 7.5V16.5L15 13.8Z" />
+                <path d="M4.5 18.8 19.5 5.2" fill="none" />
+              </svg>
+            </button>
+            <button id="muteMicBtn" class="call-action is-negative" type="button" aria-label="Turn microphone off" title="Turn microphone off">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="9.1" y="4" width="5.8" height="10" rx="2.9" ry="2.9" />
+                <path d="M7.2 11.9a4.8 4.8 0 0 0 9.6 0" />
+                <path d="M12 16.9V20" />
+                <path d="M9.2 20H14.8" />
+                <path d="M4.7 18.7 19.3 5.3" fill="none" />
+              </svg>
+            </button>
+            <button id="stopCameraBtn" class="call-action is-negative" type="button" aria-label="Turn camera off" title="Turn camera off">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 8.2A2.2 2.2 0 0 1 7.2 6H16.8A2.2 2.2 0 0 1 19 8.2V15.8A2.2 2.2 0 0 1 16.8 18H7.2A2.2 2.2 0 0 1 5 15.8Z" />
+                <circle cx="12" cy="12" r="2.6" fill="none" />
+                <path d="M4.7 18.7 19.3 5.3" fill="none" />
+              </svg>
+            </button>
+            <button id="endCallBtn" class="call-action is-negative" type="button" aria-label="End call" title="End call">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7.2 15.5c1.36 1.1 2.95 1.65 4.8 1.65s3.44-.55 4.8-1.65" fill="none" />
+                <path d="M4.9 12.5c1.9-1.34 4.26-2.01 7.1-2.01s5.2.67 7.1 2.01" fill="none" />
+                <path d="M17 14.2 19.7 16.9" fill="none" />
+                <path d="M19.7 14.2 17 16.9" fill="none" />
               </svg>
             </button>
           </div>

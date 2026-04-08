@@ -64,10 +64,13 @@ const gamePanelEl = document.getElementById("gamePanel");
 const shrinkGamePanelBtn = document.getElementById("shrinkGamePanelBtn");
 const toggleGamePanelBtn = document.getElementById("toggleGamePanelBtn");
 
-const startVoiceBtn = document.getElementById("startVoiceBtn");
 const startVideoBtn = document.getElementById("startVideoBtn");
-const toggleMicBtn = document.getElementById("toggleMicBtn");
-const toggleCameraBtn = document.getElementById("toggleCameraBtn");
+const startMicBtn = document.getElementById("startMicBtn");
+const startCameraBtn = document.getElementById("startCameraBtn");
+const startVoiceBtn = document.getElementById("startVoiceBtn");
+const stopVideoBtn = document.getElementById("stopVideoBtn");
+const muteMicBtn = document.getElementById("muteMicBtn");
+const stopCameraBtn = document.getElementById("stopCameraBtn");
 const endCallBtn = document.getElementById("endCallBtn");
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
@@ -91,15 +94,6 @@ function showMessage(text) {
   message.textContent = text || "";
 }
 
-function setCallButtonState(button, positive, label, title, icon) {
-  if (!button) return;
-  button.classList.toggle("is-positive", positive);
-  button.classList.toggle("is-negative", !positive);
-  button.setAttribute("aria-label", label);
-  button.setAttribute("title", title);
-  button.innerHTML = icon;
-}
-
 function updateCallControls() {
   const inRoom = Boolean(roomCode && myMark);
   const hasMic = Boolean(micStream);
@@ -107,30 +101,13 @@ function updateCallControls() {
   const hasAnyLocalMedia = hasMic || hasVideo;
 
   startVoiceBtn.disabled = !inRoom || hasMic;
-  startVideoBtn.disabled = !inRoom || hasVideo;
-  toggleMicBtn.disabled = !inRoom || !hasMic;
-  toggleCameraBtn.disabled = !inRoom || (!hasMic && !hasVideo);
+  startVideoBtn.disabled = !inRoom || (hasMic && hasVideo);
+  startMicBtn.disabled = !inRoom || (hasMic && !isMuted);
+  startCameraBtn.disabled = !inRoom || hasVideo;
+  stopVideoBtn.disabled = !inRoom || !hasVideo;
+  muteMicBtn.disabled = !inRoom || !hasMic || isMuted;
+  stopCameraBtn.disabled = !inRoom || !hasVideo;
   endCallBtn.disabled = !hasAnyLocalMedia && !peerConnection;
-
-  setCallButtonState(
-    toggleMicBtn,
-    !isMuted,
-    isMuted ? "Turn microphone on" : "Turn microphone off",
-    isMuted ? "Turn microphone on" : "Turn microphone off",
-    isMuted
-      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z" /><path d="M18 11.5a6 6 0 0 1-12 0" /><path d="M12 17.5V21" /><path d="M4.5 4.5 19.5 19.5" /></svg>'
-      : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z" /><path d="M18 11.5a6 6 0 0 1-12 0" /><path d="M12 17.5V21" /></svg>'
-  );
-
-  setCallButtonState(
-    toggleCameraBtn,
-    hasVideo,
-    hasVideo ? "Turn camera off" : "Turn camera on",
-    hasVideo ? "Turn camera off" : "Turn camera on",
-    hasVideo
-      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H14a2.5 2.5 0 0 1 2.5 2.5v1.3l3.6-2.4c.8-.54 1.9.03 1.9.99v9.24c0 .96-1.1 1.53-1.9.99l-3.6-2.4v1.3A2.5 2.5 0 0 1 14 19H6.5A2.5 2.5 0 0 1 4 16.5v-9Z" /></svg>'
-      : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H14a2.5 2.5 0 0 1 2.5 2.5v1.3l3.6-2.4c.8-.54 1.9.03 1.9.99v9.24c0 .96-1.1 1.53-1.9.99l-3.6-2.4v1.3A2.5 2.5 0 0 1 14 19H6.5A2.5 2.5 0 0 1 4 16.5v-9Z" /><path d="M5 5 19 19" /></svg>'
-  );
 }
 
 function updateVideoPanelButtons() {
@@ -772,6 +749,22 @@ async function endCall() {
   updateCallControls();
 }
 
+async function switchToVoiceCall() {
+  if (!micStream) {
+    await startLocalAudio();
+  }
+  if (isMuted && micStream) {
+    isMuted = false;
+    micStream.getAudioTracks().forEach((track) => {
+      track.enabled = true;
+    });
+  }
+  await stopLocalMedia();
+  await maybeStartCallFlow();
+  await renegotiatePeerConnection();
+  updateCallControls();
+}
+
 function ensurePeerConnection() {
   if (peerConnection) return peerConnection;
 
@@ -947,7 +940,40 @@ startVoiceBtn.addEventListener("click", async () => {
 startVideoBtn.addEventListener("click", async () => {
   try {
     await startLocalMedia();
+    isMuted = false;
     await maybeStartCallFlow();
+    await renegotiatePeerConnection();
+    showMessage("");
+  } catch (err) {
+    showMessage(`Camera access failed: ${err.message}`);
+  }
+});
+
+startMicBtn.addEventListener("click", async () => {
+  try {
+    if (!micStream) {
+      await startLocalAudio();
+      await maybeStartCallFlow();
+      await renegotiatePeerConnection();
+    } else if (isMuted) {
+      isMuted = false;
+      micStream.getAudioTracks().forEach((track) => {
+        track.enabled = true;
+      });
+      updateCallControls();
+      await renegotiatePeerConnection();
+    }
+    showMessage("");
+  } catch (err) {
+    showMessage(`Microphone access failed: ${err.message}`);
+  }
+});
+
+startCameraBtn.addEventListener("click", async () => {
+  try {
+    await startLocalMedia();
+    await maybeStartCallFlow();
+    await renegotiatePeerConnection();
     showMessage("");
   } catch (err) {
     showMessage(`Camera access failed: ${err.message}`);
@@ -970,29 +996,29 @@ toggleVideoPanelBtn.addEventListener("click", () => {
   toggleCollapseVideoPanel();
 });
 
-toggleCameraBtn.addEventListener("click", async () => {
-  if (outgoingProcessedVideoTrack) {
-    await stopLocalMedia();
-  } else {
-    try {
-      await startLocalMedia();
-      await maybeStartCallFlow();
-      await renegotiatePeerConnection();
-    } catch (err) {
-      showMessage(`Camera access failed: ${err.message}`);
-      return;
-    }
-  }
+stopVideoBtn.addEventListener("click", async () => {
+  await stopLocalMedia();
   showMessage("");
 });
 
-toggleMicBtn.addEventListener("click", async () => {
-  if (!micStream) return;
-  isMuted = !isMuted;
+muteMicBtn.addEventListener("click", async () => {
+  if (!micStream || isMuted) return;
+  isMuted = true;
   micStream.getAudioTracks().forEach((track) => {
     track.enabled = !isMuted;
   });
   updateCallControls();
+  await renegotiatePeerConnection();
+  showMessage("");
+});
+
+stopCameraBtn.addEventListener("click", async () => {
+  try {
+    await switchToVoiceCall();
+    showMessage("");
+  } catch (err) {
+    showMessage(`Switch to voice call failed: ${err.message}`);
+  }
 });
 
 endCallBtn.addEventListener("click", async () => {
