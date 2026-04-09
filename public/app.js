@@ -56,6 +56,11 @@ const roomCodeLabel = document.getElementById("roomCodeLabel");
 const youAreLabel = document.getElementById("youAreLabel");
 const gameStatusLabel = document.getElementById("gameStatusLabel");
 const message = document.getElementById("message");
+const appEl = document.querySelector(".app");
+const gamePanel = document.getElementById("gamePanel");
+const videoPanel = document.getElementById("videoPanel");
+const minimizeGamePanelBtn = document.getElementById("minimizeGamePanelBtn");
+const minimizeVideoPanelBtn = document.getElementById("minimizeVideoPanelBtn");
 const resetBtn = document.getElementById("resetBtn");
 const undoBtn = document.getElementById("undoBtn");
 const redoBtn = document.getElementById("redoBtn");
@@ -83,6 +88,32 @@ function redirectToLogin() {
 
 function showMessage(text) {
   message.textContent = text || "";
+}
+
+function setPanelMinimized(panel, button, minimized, options) {
+  const { appClassName, minimizeLabel, restoreLabel } = options;
+  panel.classList.toggle("is-minimized", minimized);
+  appEl.classList.toggle(appClassName, minimized);
+  button.setAttribute("aria-label", minimized ? restoreLabel : minimizeLabel);
+  button.title = minimized ? restoreLabel : minimizeLabel;
+}
+
+function toggleGamePanelMinimized() {
+  const minimized = !gamePanel.classList.contains("is-minimized");
+  setPanelMinimized(gamePanel, minimizeGamePanelBtn, minimized, {
+    appClassName: "left-minimized",
+    minimizeLabel: "Minimize left panel",
+    restoreLabel: "Restore left panel"
+  });
+}
+
+function toggleVideoPanelMinimized() {
+  const minimized = !videoPanel.classList.contains("is-minimized");
+  setPanelMinimized(videoPanel, minimizeVideoPanelBtn, minimized, {
+    appClassName: "right-minimized",
+    minimizeLabel: "Minimize call panel",
+    restoreLabel: "Restore call panel"
+  });
 }
 
 function setCallToggleButton(button, options) {
@@ -1009,6 +1040,9 @@ startCameraBtn.addEventListener("click", async () => {
     showMessage(`Camera access failed: ${err.message}`);
   }
 });
+
+minimizeGamePanelBtn.addEventListener("click", toggleGamePanelMinimized);
+minimizeVideoPanelBtn.addEventListener("click", toggleVideoPanelMinimized);
 
 updateHeader();
 renderBoard();
