@@ -24,6 +24,7 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: "Times New Roman", Times, serif;
+  overflow: hidden;
 }
 
 .app {
@@ -32,6 +33,7 @@ body {
   --game-panel-width: 240px;
   --video-panel-width: 270px;
   --minimized-panel-width: 72px;
+  --board-zoom: 1.1;
   --board-max-width: min(1100px, calc(100vh - 9.6rem));
   --toolbar-control-size: clamp(34px, calc(var(--board-max-width) * 0.047), 44px);
   --toolbar-icon-size: clamp(22px, calc(var(--board-max-width) * 0.031), 30px);
@@ -40,7 +42,7 @@ body {
   --board-frame-pad-top: 3.15rem;
   --board-toolbar-top: 0.55rem;
   --board-toolbar-gap: 0.35rem;
-  min-height: 100vh;
+  min-height: calc(100vh - (var(--app-pad) * 2));
   display: grid;
   gap: var(--app-gap);
   grid-template-columns: var(--game-panel-width) minmax(300px, 1fr) var(--video-panel-width);
@@ -50,16 +52,26 @@ body {
 
 .app.left-minimized {
   --game-panel-width: var(--minimized-panel-width);
-  --board-max-width: min(1180px, calc(100vh - 9rem));
+  --board-max-width: min(1240px, calc(100vh - 8.6rem));
 }
 
 .app.right-minimized {
   --video-panel-width: var(--minimized-panel-width);
-  --board-max-width: min(1180px, calc(100vh - 9rem));
+  --board-max-width: min(1240px, calc(100vh - 8.6rem));
 }
 
 .app.left-minimized.right-minimized {
-  --board-max-width: min(1280px, calc(100vh - 8.4rem));
+  --board-max-width: min(1360px, calc(100vh - 7.8rem));
+}
+
+.app.left-minimized .board-wrap,
+.app.right-minimized .board-wrap {
+  align-items: flex-start;
+  padding-top: calc(20px + 1.2rem);
+}
+
+.app.left-minimized.right-minimized .board-wrap {
+  padding-top: calc(20px + 0.95rem);
 }
 
 .panel {
@@ -333,7 +345,7 @@ button:disabled {
 
 .board-toolbar {
   position: absolute;
-  top: 0.75rem;
+  top: calc((var(--board-frame-pad-top) - var(--toolbar-control-size)) / 2);
   right: 20px;
   display: flex;
   gap: var(--board-toolbar-gap);
@@ -398,7 +410,7 @@ button:disabled {
     #c89b5b;
   padding: 0;
   border-radius: 6px;
-  width: min(calc(100% - (var(--board-frame-pad-x) * 2)), var(--board-max-width));
+  width: min(calc(100% - (var(--board-frame-pad-x) * 2)), calc(var(--board-max-width) * var(--board-zoom)));
   aspect-ratio: 1;
   box-shadow: inset 0 0 0 1px rgba(46, 31, 21, 0.38);
 }
@@ -612,6 +624,7 @@ video {
   justify-content: center;
   gap: 0;
 }
+
 
 .call-controls {
   display: flex;
