@@ -94,9 +94,8 @@
             <h2>Call</h2>
           </div>
           <div class="panel-body video-panel-body">
-            <div class="video-grid">
-              <div class="video-card" id="localVideoCard">
-                <p>You</p>
+            <div class="video-grid" id="videoGrid">
+              <div class="video-card video-card--interactive" id="localVideoCard" data-focus-card="local" tabindex="0" role="button" aria-label="Make your screen large">
                 <div class="video-box">
                   <div class="video-placeholder" aria-hidden="true">
                     <div class="video-avatar">Y</div>
@@ -105,8 +104,7 @@
                   <video id="localVideo" autoplay muted playsinline></video>
                 </div>
               </div>
-              <div class="video-card" id="remoteVideoCard">
-                <p>Friend</p>
+              <div class="video-card video-card--interactive" id="remoteVideoCard" data-focus-card="remote" tabindex="0" role="button" aria-label="Make friend screen large">
                 <div class="video-box">
                   <div class="video-placeholder" aria-hidden="true">
                     <div class="video-avatar">F</div>

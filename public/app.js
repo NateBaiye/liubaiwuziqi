@@ -73,9 +73,11 @@ const startVoiceBtn = document.getElementById("startVoiceBtn");
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
 const remoteAudio = document.getElementById("remoteAudio");
+const videoGrid = document.getElementById("videoGrid");
 const localVideoCard = document.getElementById("localVideoCard");
 const remoteVideoCard = document.getElementById("remoteVideoCard");
 const remoteStream = new MediaStream();
+let videoFocusMode = "remote";
 
 function apiUrl(path) {
   return `${API_BASE_URL}${path}`;
@@ -88,6 +90,43 @@ function redirectToLogin() {
 
 function showMessage(text) {
   message.textContent = text || "";
+}
+
+function updateVideoLayout() {
+  videoGrid.classList.toggle("split", videoFocusMode === "split");
+  videoGrid.classList.toggle("focus-local", videoFocusMode === "local");
+  videoGrid.classList.toggle("focus-remote", videoFocusMode === "remote");
+
+  const localMain = videoFocusMode === "local";
+  const remoteMain = videoFocusMode === "remote";
+  const splitView = videoFocusMode === "split";
+
+  localVideoCard.setAttribute(
+    "aria-label",
+    localMain ? "Show split view" : "Make your screen large"
+  );
+  remoteVideoCard.setAttribute(
+    "aria-label",
+    remoteMain ? "Show split view" : "Make friend screen large"
+  );
+  if (splitView) {
+    localVideoCard.title = "Make your screen large";
+    remoteVideoCard.title = "Make friend screen large";
+  } else {
+    localVideoCard.title = localMain ? "Show split view" : "Make your screen large";
+    remoteVideoCard.title = remoteMain ? "Show split view" : "Make friend screen large";
+  }
+}
+
+function handleVideoCardClick(target) {
+  if (videoFocusMode === "split") {
+    videoFocusMode = target;
+  } else if (videoFocusMode === target) {
+    videoFocusMode = "split";
+  } else {
+    videoFocusMode = target;
+  }
+  updateVideoLayout();
 }
 
 function setPanelMinimized(panel, button, minimized, options) {
@@ -1043,8 +1082,23 @@ startCameraBtn.addEventListener("click", async () => {
 
 minimizeGamePanelBtn.addEventListener("click", toggleGamePanelMinimized);
 minimizeVideoPanelBtn.addEventListener("click", toggleVideoPanelMinimized);
+localVideoCard.addEventListener("click", () => handleVideoCardClick("local"));
+remoteVideoCard.addEventListener("click", () => handleVideoCardClick("remote"));
+localVideoCard.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    handleVideoCardClick("local");
+  }
+});
+remoteVideoCard.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    handleVideoCardClick("remote");
+  }
+});
 
 updateHeader();
 renderBoard();
 ensureRtcConfigLoaded();
 updateCallControls();
+updateVideoLayout();
