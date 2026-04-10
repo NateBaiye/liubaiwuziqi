@@ -70,6 +70,12 @@ const startVideoBtn = document.getElementById("startVideoBtn");
 const startMicBtn = document.getElementById("startMicBtn");
 const startCameraBtn = document.getElementById("startCameraBtn");
 const startVoiceBtn = document.getElementById("startVoiceBtn");
+const micControlSlot = document.getElementById("micControlSlot");
+const cameraControlSlot = document.getElementById("cameraControlSlot");
+const micPopover = document.getElementById("micPopover");
+const cameraPopover = document.getElementById("cameraPopover");
+const micSelect = document.getElementById("micSelect");
+const cameraSelect = document.getElementById("cameraSelect");
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
 const remoteAudio = document.getElementById("remoteAudio");
@@ -78,6 +84,22 @@ const localVideoCard = document.getElementById("localVideoCard");
 const remoteVideoCard = document.getElementById("remoteVideoCard");
 const remoteStream = new MediaStream();
 let videoFocusMode = "remote";
+let availableVideoDevices = [];
+let availableAudioDevices = [];
+let selectedVideoDeviceId = "";
+let selectedAudioDeviceId = "";
+
+function getSelectableDevices(devices) {
+  const filtered = devices.filter((device) => device.deviceId && device.deviceId !== "default");
+  const seen = new Set();
+
+  return filtered.filter((device) => {
+    const key = `${device.groupId || ""}::${device.label || ""}`.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 function apiUrl(path) {
   return `${API_BASE_URL}${path}`;
@@ -90,6 +112,107 @@ function redirectToLogin() {
 
 function showMessage(text) {
   message.textContent = text || "";
+}
+
+function updateCameraSelectOptions() {
+  const menuDevices = getSelectableDevices(availableVideoDevices);
+  const previousValue = cameraSelect.value || selectedVideoDeviceId;
+  cameraSelect.innerHTML = "";
+
+  menuDevices.forEach((device, index) => {
+    const option = document.createElement("option");
+    option.value = device.deviceId;
+    option.textContent = device.label || `Camera ${index + 1}`;
+    cameraSelect.appendChild(option);
+  });
+
+  const nextValue = menuDevices.some((device) => device.deviceId === previousValue)
+    ? previousValue
+    : (menuDevices[0]?.deviceId || "");
+  cameraSelect.value = nextValue;
+  selectedVideoDeviceId = nextValue;
+}
+
+function updateMicSelectOptions() {
+  const menuDevices = getSelectableDevices(availableAudioDevices);
+  const previousValue = micSelect.value || selectedAudioDeviceId;
+  micSelect.innerHTML = "";
+
+  menuDevices.forEach((device, index) => {
+    const option = document.createElement("option");
+    option.value = device.deviceId;
+    option.textContent = device.label || `Microphone ${index + 1}`;
+    micSelect.appendChild(option);
+  });
+
+  const nextValue = menuDevices.some((device) => device.deviceId === previousValue)
+    ? previousValue
+    : (menuDevices[0]?.deviceId || "");
+  micSelect.value = nextValue;
+  selectedAudioDeviceId = nextValue;
+}
+
+function updateDeviceMenuVisibility() {
+  const hasMultipleMics = getSelectableDevices(availableAudioDevices).length > 1;
+  const hasMultipleCameras = getSelectableDevices(availableVideoDevices).length > 1;
+
+  micControlSlot.classList.toggle("has-device-menu", hasMultipleMics);
+  cameraControlSlot.classList.toggle("has-device-menu", hasMultipleCameras);
+  micPopover.hidden = true;
+  cameraPopover.hidden = true;
+  micSelect.parentElement.toggleAttribute("data-enabled", hasMultipleMics);
+  cameraSelect.parentElement.toggleAttribute("data-enabled", hasMultipleCameras);
+}
+
+function bindHoverPopover(slot, popover) {
+  slot.addEventListener("mouseenter", () => {
+    if (!slot.classList.contains("has-device-menu")) return;
+    popover.hidden = false;
+  });
+
+  slot.addEventListener("mouseleave", () => {
+    popover.hidden = true;
+  });
+}
+
+async function refreshVideoDevices() {
+  if (!navigator.mediaDevices?.enumerateDevices) return;
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    availableVideoDevices = devices.filter((device) => device.kind === "videoinput");
+    availableAudioDevices = devices.filter((device) => device.kind === "audioinput");
+    updateCameraSelectOptions();
+    updateMicSelectOptions();
+    updateDeviceMenuVisibility();
+  } catch (_) {
+    // Ignore device enumeration failures.
+  }
+}
+
+async function tuneVideoTrack(track) {
+  if (!track?.getCapabilities || !track?.applyConstraints) return;
+
+  try {
+    const capabilities = track.getCapabilities();
+    const advanced = [];
+
+    if (capabilities.zoom) {
+      const minZoom = typeof capabilities.zoom.min === "number" ? capabilities.zoom.min : 1;
+      advanced.push({ zoom: minZoom <= 1 ? 1 : minZoom });
+    }
+
+    if (capabilities.focusMode && Array.isArray(capabilities.focusMode) && capabilities.focusMode.includes("continuous")) {
+      advanced.push({ focusMode: "continuous" });
+    }
+
+    if (advanced.length > 0) {
+      await track.applyConstraints({
+        advanced
+      });
+    }
+  } catch (_) {
+    // Ignore unsupported per-device tuning constraints.
+  }
 }
 
 function updateVideoLayout() {
@@ -750,15 +873,44 @@ socket.on("peer-left", () => {
 async function startLocalAudio() {
   await ensureRtcConfigLoaded();
   if (micStream) return localStream || rebuildLocalStream();
+  const audioConstraints = {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true
+  };
+
+  if (selectedAudioDeviceId) {
+    audioConstraints.deviceId = { exact: selectedAudioDeviceId };
+  }
+
   micStream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true
-    },
+    audio: audioConstraints,
     video: false
+  }).catch(async (error) => {
+    if (selectedAudioDeviceId) {
+      selectedAudioDeviceId = "";
+      updateMicSelectOptions();
+      return navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        },
+        video: false
+      });
+    }
+    throw error;
   });
+  const [audioTrack] = micStream.getAudioTracks();
+  const audioSettings = audioTrack?.getSettings?.() || {};
+  if (audioSettings.deviceId) {
+    selectedAudioDeviceId = audioSettings.deviceId;
+  }
   isMuted = false;
+  await refreshVideoDevices();
+  if (selectedAudioDeviceId) {
+    micSelect.value = selectedAudioDeviceId;
+  }
   updateCallControls();
   return rebuildLocalStream();
 }
@@ -767,12 +919,89 @@ async function startLocalMedia() {
   await ensureRtcConfigLoaded();
   await startLocalAudio();
   if (outgoingProcessedVideoTrack) return localStream;
+  const videoConstraints = {
+    width: { ideal: 1280, max: 1280 },
+    height: { ideal: 720, max: 720 },
+    frameRate: { ideal: 30, max: 30 },
+    facingMode: "user"
+  };
+
+  if (selectedVideoDeviceId) {
+    videoConstraints.deviceId = { exact: selectedVideoDeviceId };
+    delete videoConstraints.facingMode;
+  }
+
   rawVideoStream = await navigator.mediaDevices.getUserMedia({
-    video: true,
+    video: videoConstraints,
     audio: false
+  }).catch(async (error) => {
+    if (selectedVideoDeviceId) {
+      const fallbackConstraints = {
+        width: { ideal: 1280, max: 1280 },
+        height: { ideal: 720, max: 720 },
+        frameRate: { ideal: 30, max: 30 },
+        facingMode: "user"
+      };
+      selectedVideoDeviceId = "";
+      updateCameraSelectOptions();
+      return navigator.mediaDevices.getUserMedia({
+        video: fallbackConstraints,
+        audio: false
+      });
+    }
+    throw error;
   });
+  const [videoTrack] = rawVideoStream.getVideoTracks();
+  const settings = videoTrack?.getSettings?.() || {};
+  if (settings.deviceId) {
+    selectedVideoDeviceId = settings.deviceId;
+  }
+  await refreshVideoDevices();
+  if (selectedVideoDeviceId) {
+    cameraSelect.value = selectedVideoDeviceId;
+  }
+  if (videoTrack?.applyConstraints) {
+    try {
+      await videoTrack.applyConstraints({
+        width: { ideal: 1280, max: 1280 },
+        height: { ideal: 720, max: 720 },
+        frameRate: { ideal: 30, max: 30 }
+      });
+    } catch (_) {
+      // Fall back to the browser-selected camera mode if exact 720p is not available.
+    }
+  }
+  await tuneVideoTrack(videoTrack);
   updateCallControls();
   return createProcessedVideoStream(rawVideoStream);
+}
+
+async function switchToSelectedCamera() {
+  const hadVideo = Boolean(outgoingProcessedVideoTrack);
+  if (!hadVideo) return;
+  await stopLocalMedia();
+  await startLocalMedia();
+  await maybeStartCallFlow();
+  await renegotiatePeerConnection();
+}
+
+async function switchToSelectedMicrophone() {
+  const hadMic = Boolean(micStream);
+  if (!hadMic) return;
+
+  const shouldRemainMuted = isMuted;
+  micStream.getTracks().forEach((track) => track.stop());
+  micStream = null;
+  await startLocalAudio();
+  if (shouldRemainMuted && micStream) {
+    isMuted = true;
+    micStream.getAudioTracks().forEach((track) => {
+      track.enabled = false;
+    });
+  }
+  await maybeStartCallFlow();
+  await renegotiatePeerConnection();
+  updateCallControls();
 }
 
 async function stopLocalMedia() {
@@ -1096,9 +1325,35 @@ remoteVideoCard.addEventListener("keydown", (event) => {
     handleVideoCardClick("remote");
   }
 });
+cameraSelect.addEventListener("change", async (event) => {
+  selectedVideoDeviceId = event.target.value;
+  try {
+    await switchToSelectedCamera();
+    showMessage("");
+  } catch (err) {
+    showMessage(`Camera switch failed: ${err.message}`);
+  }
+});
+micSelect.addEventListener("change", async (event) => {
+  selectedAudioDeviceId = event.target.value;
+  try {
+    await switchToSelectedMicrophone();
+    showMessage("");
+  } catch (err) {
+    showMessage(`Microphone switch failed: ${err.message}`);
+  }
+});
+bindHoverPopover(micControlSlot, micPopover);
+bindHoverPopover(cameraControlSlot, cameraPopover);
+if (navigator.mediaDevices?.addEventListener) {
+  navigator.mediaDevices.addEventListener("devicechange", () => {
+    refreshVideoDevices();
+  });
+}
 
 updateHeader();
 renderBoard();
 ensureRtcConfigLoaded();
 updateCallControls();
 updateVideoLayout();
+refreshVideoDevices();

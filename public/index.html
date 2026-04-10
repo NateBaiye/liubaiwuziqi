@@ -119,12 +119,28 @@
                 <button id="startVideoBtn" class="call-action is-positive call-action-image icon-video" type="button" aria-label="Start video call" title="Start video call">
                   <img src="icons/video-on.png" alt="" aria-hidden="true" class="call-icon-image" />
                 </button>
-                <button id="startMicBtn" class="call-action is-positive call-action-image icon-mic" type="button" aria-label="Turn microphone on" title="Turn microphone on">
-                  <img src="icons/mic-on.png" alt="" aria-hidden="true" class="call-icon-image" />
-                </button>
-                <button id="startCameraBtn" class="call-action is-positive call-action-image icon-camera" type="button" aria-label="Turn camera on" title="Turn camera on">
-                  <img src="icons/camera-on.png" alt="" aria-hidden="true" class="call-icon-image" />
-                </button>
+                <div id="micControlSlot" class="call-action-slot">
+                  <button id="startMicBtn" class="call-action is-positive call-action-image icon-mic" type="button" aria-label="Turn microphone on" title="Turn microphone on">
+                    <img src="icons/mic-on.png" alt="" aria-hidden="true" class="call-icon-image" />
+                  </button>
+                  <div id="micPopover" class="device-popover" hidden>
+                    <label for="micSelect">Microphone</label>
+                    <select id="micSelect" aria-label="Choose microphone">
+                      <option value="">Default microphone</option>
+                    </select>
+                  </div>
+                </div>
+                <div id="cameraControlSlot" class="call-action-slot">
+                  <button id="startCameraBtn" class="call-action is-positive call-action-image icon-camera" type="button" aria-label="Turn camera on" title="Turn camera on">
+                    <img src="icons/camera-on.png" alt="" aria-hidden="true" class="call-icon-image" />
+                  </button>
+                  <div id="cameraPopover" class="device-popover" hidden>
+                    <label for="cameraSelect">Camera</label>
+                    <select id="cameraSelect" aria-label="Choose camera">
+                      <option value="">Default camera</option>
+                    </select>
+                  </div>
+                </div>
                 <button id="startVoiceBtn" class="call-action is-positive call-action-image icon-phone" type="button" aria-label="Start voice call" title="Start voice call">
                   <img src="icons/phone-on.png" alt="" aria-hidden="true" class="call-icon-image" />
                 </button>
