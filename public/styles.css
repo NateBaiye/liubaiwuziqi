@@ -1,4 +1,5 @@
 :root {
+  --outer-gap: 1rem;
   --bg: #f7f7f7;
   --panel: #ffffff;
   --ink: #111827;
@@ -6,7 +7,7 @@
   --accent-dark: #7c291f;
   --line: #7c6d62;
   --card-radius: 16px;
-  --card-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  --card-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
   --card-border: 1px solid rgba(17, 24, 39, 0.06);
 }
 
@@ -18,6 +19,7 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+  height: 100%;
 }
 
 body {
@@ -25,11 +27,14 @@ body {
   color: var(--ink);
   font-family: "Times New Roman", Times, serif;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--outer-gap);
 }
 
 .app {
   --app-gap: 1rem;
-  --app-pad: 1rem;
   --game-panel-width: 240px;
   --video-panel-width: 270px;
   --minimized-panel-width: 72px;
@@ -42,36 +47,27 @@ body {
   --board-frame-pad-top: 3.15rem;
   --board-toolbar-top: 0.55rem;
   --board-toolbar-gap: 0.35rem;
-  min-height: calc(100vh - (var(--app-pad) * 2));
+  width: calc(100vw - (var(--outer-gap) * 2));
+  height: min(calc(100dvh - (var(--outer-gap) * 2)), 860px);
   display: grid;
   gap: var(--app-gap);
   grid-template-columns: var(--game-panel-width) minmax(300px, 1fr) var(--video-panel-width);
-  padding: var(--app-pad);
   align-items: stretch;
+  transform: translateY(-0.35rem);
 }
 
 .app.left-minimized {
   --game-panel-width: var(--minimized-panel-width);
-  --board-max-width: min(1240px, calc(100vh - 8.6rem));
+  --board-max-width: min(1160px, calc(100vh - 9.6rem));
 }
 
 .app.right-minimized {
   --video-panel-width: var(--minimized-panel-width);
-  --board-max-width: min(1240px, calc(100vh - 8.6rem));
+  --board-max-width: min(1160px, calc(100vh - 9.6rem));
 }
 
 .app.left-minimized.right-minimized {
-  --board-max-width: min(1360px, calc(100vh - 7.8rem));
-}
-
-.app.left-minimized .board-wrap,
-.app.right-minimized .board-wrap {
-  align-items: flex-start;
-  padding-top: calc(20px + 1.2rem);
-}
-
-.app.left-minimized.right-minimized .board-wrap {
-  padding-top: calc(20px + 0.95rem);
+  --board-max-width: min(1220px, calc(100vh - 9.6rem));
 }
 
 .panel {
@@ -88,6 +84,7 @@ body {
 .panel-content {
   width: 100%;
   min-height: 100%;
+  height: 100%;
 }
 
 .sub {
@@ -297,8 +294,15 @@ button:disabled {
   display: none;
 }
 
+.video-panel.is-minimized .panel-body {
+  display: flex;
+  flex: 0 0 auto;
+  margin-top: 0.45rem;
+}
+
 .panel.is-minimized .panel-content {
-  min-height: calc(100vh - 4rem);
+  min-height: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -331,6 +335,55 @@ button:disabled {
   letter-spacing: 0.01em;
 }
 
+.video-panel.is-minimized .panel-header {
+  flex: 0 0 auto;
+}
+
+.video-panel.is-minimized {
+  overflow: visible;
+}
+
+.video-panel.is-minimized .video-panel-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.video-panel.is-minimized .video-grid {
+  display: none;
+}
+
+.video-panel.is-minimized .call-toolbar {
+  margin-top: 0;
+  height: auto;
+  align-items: center;
+}
+
+.video-panel.is-minimized .call-controls {
+  flex-direction: column;
+  gap: 0.42rem;
+}
+
+.video-panel.is-minimized .call-group {
+  padding: 0.34rem 0.24rem;
+}
+
+.video-panel.is-minimized .device-popover {
+  left: auto;
+  right: calc(100% + 0.55rem);
+  bottom: 50%;
+  transform: translateY(50%);
+}
+
+.video-panel.is-minimized .device-popover::after {
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 6px 0 6px 7px;
+  border-color: transparent transparent transparent #ffffff;
+}
+
 .game-panel .join-row button {
   min-width: 0;
   padding-left: 0.6rem;
@@ -360,7 +413,7 @@ button:disabled {
   border-radius: 20px;
   padding: 20px;
   padding-top: calc(20px + 1.75rem);
-  box-shadow: 0 14px 32px rgba(42, 25, 17, 0.28), inset 0 0 0 1px rgba(255, 226, 188, 0.08);
+  box-shadow: 0 0 28px rgba(42, 25, 17, 0.22), inset 0 0 0 1px rgba(255, 226, 188, 0.08);
   height: 100%;
 }
 
@@ -733,11 +786,12 @@ video {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.55rem;
+  gap: 0.34rem;
+  flex-wrap: nowrap;
 }
 
 .call-group {
-  padding: 0.35rem 0.45rem;
+  padding: 0.28rem 0.3rem;
   border-radius: 999px;
   background: rgba(17, 24, 39, 0.04);
   overflow: visible;
@@ -807,8 +861,8 @@ video {
 }
 
 .call-action {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: 999px;
   padding: 0;
   display: inline-flex;
@@ -823,8 +877,8 @@ video {
 }
 
 .call-action svg {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   stroke: currentColor;
   fill: currentColor;
   stroke-width: 1.7;
@@ -846,14 +900,14 @@ video {
 }
 
 .call-action.is-positive.call-action-image .call-icon-image {
-  width: 120%;
-  height: 120%;
+  width: 112%;
+  height: 112%;
   object-position: center;
 }
 
 .call-action.is-negative.call-action-image .call-icon-image {
-  width: 120%;
-  height: 120%;
+  width: 112%;
+  height: 112%;
   object-position: center;
 }
 

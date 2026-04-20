@@ -374,7 +374,8 @@ function boardIsFull(board) {
 function recomputeRoomStateFromHistory(room) {
   room.board = newBoard();
   room.winner = null;
-  room.turn = 1;
+  room.startingMark = room.startingMark || 1;
+  room.turn = room.startingMark;
 
   for (const move of room.history) {
     room.board[move.row][move.col] = move.mark;
@@ -472,6 +473,7 @@ async function createRoom() {
     code,
     players: [],
     board: newBoard(),
+    startingMark: 1,
     turn: 1,
     winner: null,
     history: [],
@@ -485,6 +487,7 @@ function getRoomState(room) {
   return {
     code: room.code,
     board: room.board,
+    startingMark: room.startingMark || 1,
     turn: room.turn,
     winner: room.winner,
     players: room.players.map((p) => ({
@@ -597,8 +600,14 @@ io.on("connection", (socket) => {
       cb?.({ ok: false, error: "Room not found." });
       return;
     }
+    room.startingMark = room.startingMark || 1;
+
+    if (room.winner === 1 || room.winner === 2) {
+      room.startingMark = room.winner === 1 ? 2 : 1;
+    }
+
     room.board = newBoard();
-    room.turn = 1;
+    room.turn = room.startingMark;
     room.winner = null;
     room.history = [];
     room.redoStack = [];

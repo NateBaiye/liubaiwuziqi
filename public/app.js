@@ -69,13 +69,17 @@ const boardEl = document.getElementById("board");
 const startVideoBtn = document.getElementById("startVideoBtn");
 const startMicBtn = document.getElementById("startMicBtn");
 const startCameraBtn = document.getElementById("startCameraBtn");
+const startSpeakerBtn = document.getElementById("startSpeakerBtn");
 const startVoiceBtn = document.getElementById("startVoiceBtn");
 const micControlSlot = document.getElementById("micControlSlot");
 const cameraControlSlot = document.getElementById("cameraControlSlot");
+const speakerControlSlot = document.getElementById("speakerControlSlot");
 const micPopover = document.getElementById("micPopover");
 const cameraPopover = document.getElementById("cameraPopover");
+const speakerPopover = document.getElementById("speakerPopover");
 const micSelect = document.getElementById("micSelect");
 const cameraSelect = document.getElementById("cameraSelect");
+const speakerSelect = document.getElementById("speakerSelect");
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
 const remoteAudio = document.getElementById("remoteAudio");
@@ -86,15 +90,30 @@ const remoteStream = new MediaStream();
 let videoFocusMode = "remote";
 let availableVideoDevices = [];
 let availableAudioDevices = [];
+let availableOutputDevices = [];
 let selectedVideoDeviceId = "";
 let selectedAudioDeviceId = "";
+let selectedOutputDeviceId = "";
+let isSpeakerMuted = false;
+
+function normalizeDeviceLabel(label) {
+  return String(label || "")
+    .replace(/^default\s*[-:]*\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
 
 function getSelectableDevices(devices) {
-  const filtered = devices.filter((device) => device.deviceId && device.deviceId !== "default");
   const seen = new Set();
 
-  return filtered.filter((device) => {
-    const key = `${device.groupId || ""}::${device.label || ""}`.toLowerCase();
+  return devices.filter((device) => {
+    if (!device.deviceId) return false;
+    const normalizedLabel = normalizeDeviceLabel(device.label);
+    const key = `${device.groupId || ""}::${normalizedLabel}`;
+    if (device.deviceId === "default" && normalizedLabel) {
+      return false;
+    }
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -152,26 +171,78 @@ function updateMicSelectOptions() {
   selectedAudioDeviceId = nextValue;
 }
 
+function supportsSpeakerSelection() {
+  return typeof remoteAudio?.setSinkId === "function";
+}
+
+function updateSpeakerSelectOptions() {
+  const menuDevices = getSelectableDevices(availableOutputDevices);
+  const previousValue = speakerSelect.value || selectedOutputDeviceId;
+  speakerSelect.innerHTML = "";
+
+  menuDevices.forEach((device, index) => {
+    const option = document.createElement("option");
+    option.value = device.deviceId;
+    option.textContent = device.label || `Speaker ${index + 1}`;
+    speakerSelect.appendChild(option);
+  });
+
+  const nextValue = menuDevices.some((device) => device.deviceId === previousValue)
+    ? previousValue
+    : (menuDevices[0]?.deviceId || "");
+  speakerSelect.value = nextValue;
+  selectedOutputDeviceId = nextValue;
+}
+
 function updateDeviceMenuVisibility() {
   const hasMultipleMics = getSelectableDevices(availableAudioDevices).length > 1;
   const hasMultipleCameras = getSelectableDevices(availableVideoDevices).length > 1;
+  const hasMultipleSpeakers = supportsSpeakerSelection() && getSelectableDevices(availableOutputDevices).length > 1;
 
   micControlSlot.classList.toggle("has-device-menu", hasMultipleMics);
   cameraControlSlot.classList.toggle("has-device-menu", hasMultipleCameras);
+  speakerControlSlot.classList.toggle("has-device-menu", hasMultipleSpeakers);
   micPopover.hidden = true;
   cameraPopover.hidden = true;
+  speakerPopover.hidden = true;
   micSelect.parentElement.toggleAttribute("data-enabled", hasMultipleMics);
   cameraSelect.parentElement.toggleAttribute("data-enabled", hasMultipleCameras);
+  speakerSelect.parentElement.toggleAttribute("data-enabled", hasMultipleSpeakers);
 }
 
 function bindHoverPopover(slot, popover) {
-  slot.addEventListener("mouseenter", () => {
+  let hideTimer = null;
+
+  const showPopover = () => {
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
     if (!slot.classList.contains("has-device-menu")) return;
     popover.hidden = false;
-  });
+  };
 
-  slot.addEventListener("mouseleave", () => {
-    popover.hidden = true;
+  const scheduleHide = () => {
+    if (hideTimer) clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => {
+      popover.hidden = true;
+    }, 90);
+  };
+
+  slot.addEventListener("mouseenter", showPopover);
+  slot.addEventListener("mouseleave", (event) => {
+    if (popover.contains(event.relatedTarget)) return;
+    scheduleHide();
+  });
+  popover.addEventListener("mouseenter", () => {
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+  });
+  popover.addEventListener("mouseleave", (event) => {
+    if (slot.contains(event.relatedTarget)) return;
+    scheduleHide();
   });
 }
 
@@ -181,12 +252,28 @@ async function refreshVideoDevices() {
     const devices = await navigator.mediaDevices.enumerateDevices();
     availableVideoDevices = devices.filter((device) => device.kind === "videoinput");
     availableAudioDevices = devices.filter((device) => device.kind === "audioinput");
+    availableOutputDevices = devices.filter((device) => device.kind === "audiooutput");
     updateCameraSelectOptions();
     updateMicSelectOptions();
+    updateSpeakerSelectOptions();
     updateDeviceMenuVisibility();
   } catch (_) {
     // Ignore device enumeration failures.
   }
+}
+
+async function applySelectedSpeakerOutput() {
+  if (!supportsSpeakerSelection()) return;
+  try {
+    await remoteAudio.setSinkId(selectedOutputDeviceId || "");
+  } catch (_) {
+    // Ignore unsupported or blocked output-device changes.
+  }
+}
+
+function syncSpeakerState() {
+  remoteAudio.muted = isSpeakerMuted;
+  remoteAudio.volume = isSpeakerMuted ? 0 : 1;
 }
 
 async function tuneVideoTrack(track) {
@@ -313,6 +400,7 @@ function updateCallControls() {
   const hasVideo = Boolean(outgoingProcessedVideoTrack);
   const hasAnyLocalMedia = hasMic || hasVideo;
   const micActive = hasMic && !isMuted;
+  const speakerActive = !isSpeakerMuted;
 
   setCallToggleButton(startVideoBtn, {
     active: hasVideo,
@@ -339,6 +427,15 @@ function updateCallControls() {
     offSrc: "icons/camera-off.png",
     onLabel: "Turn camera on",
     offLabel: "Turn camera off"
+  });
+
+  setCallToggleButton(startSpeakerBtn, {
+    active: speakerActive,
+    enabled: inRoom,
+    onSrc: "icons/speaker-on.png",
+    offSrc: "icons/speaker-off.png",
+    onLabel: "Turn speaker on",
+    offLabel: "Turn speaker off"
   });
 
   setCallToggleButton(startVoiceBtn, {
@@ -1110,8 +1207,8 @@ function ensurePeerConnection() {
     // Remote sound comes from the dedicated audio element below.
     remoteVideo.muted = true;
     remoteVideo.volume = 1;
-    remoteAudio.muted = false;
-    remoteAudio.volume = 1;
+    syncSpeakerState();
+    applySelectedSpeakerOutput();
     const playPromise = Promise.all([remoteVideo.play(), remoteAudio.play()]);
     if (playPromise?.catch) {
       playPromise.catch(() => {
@@ -1309,6 +1406,22 @@ startCameraBtn.addEventListener("click", async () => {
   }
 });
 
+startSpeakerBtn.addEventListener("click", async () => {
+  try {
+    isSpeakerMuted = !isSpeakerMuted;
+    syncSpeakerState();
+    if (!isSpeakerMuted) {
+      await applySelectedSpeakerOutput();
+      await remoteAudio.play().catch(() => {});
+    }
+    showMessage("");
+  } catch (err) {
+    showMessage(`Speaker update failed: ${err.message}`);
+  } finally {
+    updateCallControls();
+  }
+});
+
 minimizeGamePanelBtn.addEventListener("click", toggleGamePanelMinimized);
 minimizeVideoPanelBtn.addEventListener("click", toggleVideoPanelMinimized);
 localVideoCard.addEventListener("click", () => handleVideoCardClick("local"));
@@ -1343,8 +1456,18 @@ micSelect.addEventListener("change", async (event) => {
     showMessage(`Microphone switch failed: ${err.message}`);
   }
 });
+speakerSelect.addEventListener("change", async (event) => {
+  selectedOutputDeviceId = event.target.value;
+  try {
+    await applySelectedSpeakerOutput();
+    showMessage("");
+  } catch (err) {
+    showMessage(`Speaker switch failed: ${err.message}`);
+  }
+});
 bindHoverPopover(micControlSlot, micPopover);
 bindHoverPopover(cameraControlSlot, cameraPopover);
+bindHoverPopover(speakerControlSlot, speakerPopover);
 if (navigator.mediaDevices?.addEventListener) {
   navigator.mediaDevices.addEventListener("devicechange", () => {
     refreshVideoDevices();
